@@ -1,0 +1,6 @@
+numba==0.64.0rc1
+pandas
+plotly.express
+pyadi-iio==0.0.20
+pylibiio
+scipy

@@ -1,0 +1,33 @@
+# Konfiguracja ADALM-Pluto
+BARKER7_BITS = [ 0 , 0 , 0 , 1 , 1 , 0 , 1 ]
+BARKER13_BITS = [ 0 , 0 , 0 , 0 , 0 , 1 , 1 , 0 , 0 , 1 , 0 , 1 , 0 ]
+PAYLOAD_4BYTES_DEC = [ 15, 15 , 15 , 15 ]
+cuda = "True"
+
+[ADALM-Pluto]
+F_C = 2900000000                    # center frequency
+F_S = 3000000                       # sample rate
+BW = 1000000                        # bandwidth
+TX_GAIN = -10.0                     # transmit gain
+RX_GAIN = 71                        # receive gain
+GAIN_CONTROL = "slow_attack"        # gain control mode
+SAMPLES_BUFFER = 65536
+SAMPLES_BUFFER_SIZE = 65536
+
+[ADALM-Pluto.URI]
+IP = "ip:192.168.2.1"
+USB = "usb:"
+SN_RX = "10447318ac0f00091e002400454e18b77d"
+SN_TX = "1044739a470b000a090018007ecf7f5ea8"
+
+[bpsk]
+SPS = 4                             # samples per symbol
+
+[rrc_filter]
+BETA = 0.35                         # roll-off factor default = 0.35
+SPAN = 11                           # filter span in symbols
+
+[log]
+verbose_0 = 1
+verbose_1 = 0
+verbose_2 = 0

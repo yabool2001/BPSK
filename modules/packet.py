@@ -1,4 +1,3 @@
-import csv
 import numpy as np
 import os
 import time as t
@@ -7,12 +6,11 @@ import zlib
 
 from adi import Pluto
 from dataclasses import dataclass , field
-from modules import corrections , filters , modulation, ops_file, plot , sdr
+from modules import corrections , file , filters , modulation , plot , sdr 
 from numpy.typing import NDArray
-
 from pathlib import Path
 from scipy.signal import find_peaks
-from typing import Any
+#from typing import Any
 
 np.set_printoptions ( threshold = np.inf , linewidth = np.inf ) # Ensures all array elements are displayed without truncation and prevents line wrapping for long output lines.
 
@@ -167,143 +165,19 @@ def detect_sync_sequence_peaks_v0_1_15 ( samples: NDArray[ np.complex128 ] , syn
     if plt:
         if deep :
             if peaks_real.size > 0 :
-                plot.real_waveform_v0_1_6 ( corr_real_norm , f"corr_real_norm {corr_real_norm.size=} {peaks_real.size=}" , False , peaks_real )
+                plot.real_waveform_v0_0_0 ( corr_real_norm , f"corr_real_norm {corr_real_norm.size=} {peaks_real.size=}" , False , peaks_real )
             if peaks_neg_real.size > 0 :
-                plot.real_waveform_v0_1_6 ( corr_neg_real_norm , f"corr_neg_real_norm {corr_neg_real_norm.size=} {peaks_neg_real.size=}" , False , peaks_neg_real )
+                plot.real_waveform_v0_0_0 ( corr_neg_real_norm , f"corr_neg_real_norm {corr_neg_real_norm.size=} {peaks_neg_real.size=}" , False , peaks_neg_real )
             if peaks_imag.size > 0 :
-                plot.real_waveform_v0_1_6 ( corr_imag_norm , f"corr_imag_norm {corr_imag_norm.size=} {peaks_imag.size=}" , False , peaks_imag )
+                plot.real_waveform_v0_0_0 ( corr_imag_norm , f"corr_imag_norm {corr_imag_norm.size=} {peaks_imag.size=}" , False , peaks_imag )
             if peaks_neg_imag.size > 0 :
-                plot.real_waveform_v0_1_6 ( corr_neg_imag_norm , f"corr_neg_imag_norm {corr_neg_imag_norm.size=} {peaks_neg_imag.size=}" , False , peaks_neg_imag )
+                plot.real_waveform_v0_0_0 ( corr_neg_imag_norm , f"corr_neg_imag_norm {corr_neg_imag_norm.size=} {peaks_neg_imag.size=}" , False , peaks_neg_imag )
             if peaks_all.size > 0 :
-                plot.complex_waveform_v0_1_6 ( samples , f"samples all {samples.size=} {peaks_all.size=}" , False , peaks_all )
+                plot.complex_waveform_v0_0_0 ( samples , f"samples all {samples.size=} {peaks_all.size=}" , False , peaks_all )
         if peaks.size > 0 :
-            plot.real_waveform_v0_1_6 ( corr_norm , f"corr_norm {corr_norm.size=} {peaks.size=}" , False , peaks )
-            plot.complex_waveform_v0_1_6 ( samples , f"samples {samples.size=} {peaks.size=}" , False , peaks )
+            plot.real_waveform_v0_0_0 ( corr_norm , f"corr_norm {corr_norm.size=} {peaks.size=}" , False , peaks )
+            plot.complex_waveform_v0_0_0 ( samples , f"samples {samples.size=} {peaks.size=}" , False , peaks )
 
-    peaks_all = np.unique ( np.concatenate ( ( peaks_all , peaks ) ).astype ( np.uint32 ) ) # Nie łączyłem tego wcześniej, bo chciałem zobaczyć co dają różne metody korelacji bez abs i jak to się ma w porównaniu do abs.
-    if settings["log"]["verbose_1"] : print(f"detect_sync_sequence_peaks_v0_1_15 {peaks_all.size=} w czasie [ms]: {( t.perf_counter_ns () - ts ) / 1e6:.1f} ")
-    return peaks_all
-
-def detect_sync_sequence_peaks_v0_1_15_no_deep ( samples: NDArray[ np.complex128 ] , sync_sequence : NDArray[ np.complex128 ] , deep : bool = False ) -> NDArray[ np.uint32 ] :
-
-    plt = False
-    if settings["log"]["verbose_1"] : ts = t.perf_counter_ns ()
-    
-    min_peak_height_ratio = 0.8
-
-    peaks = np.array ( [] ).astype ( np.uint32 )
-
-    # W BPSK Q=0 teoretycznie, ale jeśli plik 'sync_sequence' jest typu complex,
-    # musimy użyć sprzężenia (conj), inaczej korelacja będzie błędna. To bezpieczne.
-    # Różnica w czasie jest pomijalna a więc zostawię conjugate
-    corr = np.abs ( np.correlate ( samples , np.conj ( sync_sequence ) , mode = "valid" ) )
-    #corr = np.correlate ( samples , np.conj(sync_sequence) , mode = "valid" )
-    #corr = np.abs ( np.correlate ( samples , sync_sequence , mode = "valid" ) )
-
-    ones = np.ones ( len ( sync_sequence ) )
-    # Fix: Use abs(samples)**2 for calculating energy of complex signal
-    local_energy = np.correlate ( np.abs ( samples )**2 , ones , mode = "valid" )
-    sync_seq_norm = np.linalg.norm ( sync_sequence )
-    local_signal_norm = np.sqrt ( np.maximum ( local_energy , 1e-10 ) )
-    corr_norm = corr / ( local_signal_norm * sync_seq_norm )
-
-    # Dodajemy próg bezwzględny dla znormalizowanej korelacji (np. 0.6).
-    # W samym szumie max korelacja jest niska (np. 0.3), więc adaptive threshold (0.8 * max)
-    # ustawiałby się na 0.24 i wykrywał szum. Wymuszenie min. 0.6 eliminuje te piki.
-    # EDIT: Dla filtrowanego szumu 0.6 to za mało (True Positives in Noise). Podnoszę do 0.8.
-    min_correlation_threshold_abs = 0.8
-    
-    max_peak_val_normalized = np.max ( corr_norm )
-    
-    # Próg to maksimum z (bezwzględnego minimum, relatywnego progu od piku)
-    final_threshold = max ( min_correlation_threshold_abs , max_peak_val_normalized * min_peak_height_ratio )
-
-    peaks , _ = find_peaks ( corr_norm , height = final_threshold )
-
-    if settings["log"]["verbose_1"] : print(f"detect_sync_sequence_peaks_v0_1_15 {peaks.size=} w czasie [ms]: {( t.perf_counter_ns () - ts ) / 1e6:.1f} ")
-
-    if plt :
-        plot.real_waveform_v0_1_6 ( corr_norm , f"corr normalized {peaks.size=} {corr_norm.size=}" , False , peaks )
-        plot.complex_waveform_v0_1_6 ( samples , f"samples normalized {peaks.size=} {samples.size=}" , False , peaks )
-
-    return peaks
-
-def detect_sync_sequence_peaks_v0_1_15_old ( samples: NDArray[ np.complex128 ] , sync_sequence : NDArray[ np.complex128 ] , fast : bool = False ) -> NDArray[ np.uint32 ] :
-    
-    ts = t.perf_counter_ns ()
-    plt = False
-    min_peak_height_ratio = 0.8
-    
-    if not fast :
-        peaks_real = np.array ( [] ).astype ( np.uint32 )
-        peaks_neg_real = np.array ( [] ).astype ( np.uint32 )
-        peaks_imag = np.array ( [] ).astype ( np.uint32 )
-        peaks_neg_imag = np.array ( [] ).astype ( np.uint32 )
-    peaks_all = np.array ( [] ).astype ( np.uint32 )
-    peaks_abs = np.array ( [] ).astype ( np.uint32 )
-
-    if not fast :
-        corr_real = np.correlate ( samples.real , sync_sequence.real , mode = "valid" )
-        corr_neg_real = np.correlate ( -samples.real , sync_sequence.real , mode = "valid" )
-        corr_imag = np.correlate ( samples.imag , sync_sequence.real , mode = "valid" )
-        corr_neg_imag = np.correlate ( -samples.imag , sync_sequence.real , mode = "valid" )
-    corr_abs = np.abs ( np.correlate ( samples , sync_sequence , mode = "valid" ) )
-
-    ones = np.ones ( len ( sync_sequence ) )
-    sync_seq_norm = np.linalg.norm ( sync_sequence )
-    
-    if not fast :
-        local_energy_real = np.correlate ( samples.real**2 , ones , mode = "valid" )
-        local_energy_neg_real = np.correlate ( ( -samples.real )**2 , ones , mode = "valid" )
-        local_energy_imag = np.correlate ( samples.imag**2 , ones , mode = "valid" )
-        local_energy_neg_imag = np.correlate ( ( -samples.imag )**2 , ones , mode = "valid" )
-    local_energy_abs = np.correlate ( np.abs ( samples )**2 , ones , mode = "valid" )
-    
-    if not fast :
-        local_signal_real_norm = np.sqrt ( np.maximum ( local_energy_real , 1e-10 ) )
-        local_signal_neg_real_norm = np.sqrt ( np.maximum ( local_energy_neg_real , 1e-10 ) )
-        local_signal_imag_norm = np.sqrt ( np.maximum ( local_energy_imag , 1e-10 ) )
-        local_signal_neg_imag_norm = np.sqrt ( np.maximum ( local_energy_neg_imag , 1e-10 ) )
-    local_signal_abs_norm = np.sqrt ( np.maximum ( local_energy_abs , 1e-10 ) )
-    
-    # Wynik znormalizowany (wartości teoretycznie od -1.0 do 1.0)
-    if not fast :
-        corr_real_norm = corr_real / ( local_signal_real_norm * sync_seq_norm )
-        corr_neg_real_norm = corr_neg_real / ( local_signal_neg_real_norm * sync_seq_norm )
-        corr_imag_norm = corr_imag / ( local_signal_imag_norm * sync_seq_norm )
-        corr_neg_imag_norm = corr_neg_imag / ( local_signal_neg_imag_norm * sync_seq_norm )
-    corr_abs_norm = corr_abs / ( local_signal_abs_norm * sync_seq_norm )
-
-    if not fast :
-        max_peak_real_val = np.max ( corr_real_norm )
-        max_peak_neg_real_val = np.max ( corr_neg_real_norm )
-        max_peak_imag_val = np.max ( corr_imag_norm )
-        max_peak_neg_imag_val = np.max ( corr_neg_imag_norm )
-    max_peak_abs_val = np.max ( corr_abs_norm )
-
-    if not fast :
-        peaks_real , _ = find_peaks ( corr_real_norm , height = max_peak_real_val * min_peak_height_ratio , distance = len ( sync_sequence ) * modulation.SPS )
-        peaks_neg_real , _ = find_peaks ( corr_neg_real_norm , height = max_peak_neg_real_val * min_peak_height_ratio , distance = len ( sync_sequence ) * modulation.SPS )
-        peaks_imag , _ = find_peaks ( corr_imag_norm , height = max_peak_imag_val * min_peak_height_ratio , distance = len ( sync_sequence ) * modulation.SPS )
-        peaks_neg_imag , _ = find_peaks ( corr_neg_imag_norm , height = max_peak_neg_imag_val * min_peak_height_ratio , distance = len ( sync_sequence ) * modulation.SPS )
-        peaks_all = np.unique ( np.concatenate ( ( peaks_real , peaks_neg_real , peaks_imag , peaks_neg_imag ) ).astype ( np.uint32 ) )
-    peaks_abs , _ = find_peaks ( corr_abs_norm , height = max_peak_abs_val * min_peak_height_ratio , distance = len ( sync_sequence ) * modulation.SPS )
-
-    if plt and peaks_all.size > 0 :
-        if not fast :
-            if peaks_real.size > 0 :
-                plot.real_waveform_v0_1_6 ( corr_real_norm , f"corr_real_norm {corr_real_norm.size=} {peaks_real.size=}" , False , peaks_real )
-            if peaks_neg_real.size > 0 :
-                plot.real_waveform_v0_1_6 ( corr_neg_real_norm , f"corr_neg_real_norm {corr_neg_real_norm.size=} {peaks_neg_real.size=}" , False , peaks_neg_real )
-            if peaks_imag.size > 0 :
-                plot.real_waveform_v0_1_6 ( corr_imag_norm , f"corr_imag_norm {corr_imag_norm.size=} {peaks_imag.size=}" , False , peaks_imag )
-            if peaks_neg_imag.size > 0 :
-                plot.real_waveform_v0_1_6 ( corr_neg_imag_norm , f"corr_neg_imag_norm {corr_neg_imag_norm.size=} {peaks_neg_imag.size=}" , False , peaks_neg_imag )
-            if peaks_all.size > 0 :
-                plot.complex_waveform_v0_1_6 ( samples , f"samples all {samples.size=} {peaks_all.size=}" , False , peaks_all )
-        if peaks_abs.size > 0 :
-            plot.real_waveform_v0_1_6 ( corr_abs_norm , f"corr_abs_norm {corr_abs_norm.size=} {peaks_abs.size=}" , False , peaks_abs )
-            plot.complex_waveform_v0_1_6 ( samples , f"samples abs {samples.size=} {peaks_abs.size=}" , False , peaks_abs )
     '''
     if wrt and sync:
         filename = base_path.parent / f"V7_{samples.size=}_{base_path.name}"
@@ -320,8 +194,9 @@ def detect_sync_sequence_peaks_v0_1_15_old ( samples: NDArray[ np.complex128 ] ,
             for idx in peaks :
                 writer.writerow ( { 'corr' : 'all' , 'peak_idx' : int ( idx ) , 'peak_val' : float ( corr_abs[ idx ] ) } )
     '''
-    peaks_all = np.unique ( np.concatenate ( ( peaks_all , peaks_abs ) ).astype ( np.uint32 ) ) # Nie łączyłem tego wcześniej, bo chciałem zobaczyć co dają różne metody korelacji bez abs i jak to się ma w porównaniu do abs.
-    if settings["log"]["verbose_1"] : print(f"Detekcja {peaks_all.size=} w czasie [ms]: {( t.perf_counter_ns () - ts ) / 1e6:.1f} ")
+
+    peaks_all = np.unique ( np.concatenate ( ( peaks_all , peaks ) ).astype ( np.uint32 ) ) # Nie łączyłem tego wcześniej, bo chciałem zobaczyć co dają różne metody korelacji bez abs i jak to się ma w porównaniu do abs.
+    if settings["log"]["verbose_1"] : print(f"detect_sync_sequence_peaks_v0_1_15 {peaks_all.size=} w czasie [ms]: {( t.perf_counter_ns () - ts ) / 1e6:.1f} ")
     return peaks_all
 
 def gen_bits ( bytes ) :
@@ -379,7 +254,7 @@ def add_timestamp_2_filename ( filename : str ) -> str :
     return f"{name}_{timestamp}{ext}"
 
 @dataclass ( slots = True , eq = False )
-class RxPacket_v0_1_13 :
+class RxPacket_v0_0_0 :
 
     samples_filtered : NDArray[ np.complex128 ]
     packet_start_idx : np.uint32
@@ -399,9 +274,9 @@ class RxPacket_v0_1_13 :
         for samples_component , samples_name in samples_components :
             payload_symbols = samples_component [ self.packet_start_idx : payload_end_idx : sps ]
             crc32_symbols = samples_component [ payload_end_idx : : sps ]
-            payload_bits = modulation.bpsk_symbols_2_bits_v0_1_7 ( payload_symbols )
+            payload_bits = modulation.bpsk_symbols_2_bits_v0_0_0 ( payload_symbols )
             payload_bytes = pad_bits2bytes ( payload_bits )
-            crc32_bits = modulation.bpsk_symbols_2_bits_v0_1_7 ( crc32_symbols )
+            crc32_bits = modulation.bpsk_symbols_2_bits_v0_0_0 ( crc32_symbols )
             crc32_bytes_read = pad_bits2bytes ( crc32_bits )
             crc32_bytes_calculated = create_crc32_bytes ( payload_bytes )
             if ( crc32_bytes_read == crc32_bytes_calculated ).all () :
@@ -417,9 +292,9 @@ class RxPacket_v0_1_13 :
         if settings["log"]["verbose_2"] : self.analyze ( samples = self.samples_corrected )
         payload_symbols = self.samples_corrected [ self.packet_start_idx : payload_end_idx : sps ]
         crc32_symbols = self.samples_corrected [ payload_end_idx : : sps ]
-        payload_bits = modulation.bpsk_symbols_2_bits_v0_1_7 ( payload_symbols )
+        payload_bits = modulation.bpsk_symbols_2_bits_v0_0_0 ( payload_symbols )
         payload_bytes = pad_bits2bytes ( payload_bits )
-        crc32_bits = modulation.bpsk_symbols_2_bits_v0_1_7 ( crc32_symbols )
+        crc32_bits = modulation.bpsk_symbols_2_bits_v0_0_0 ( crc32_symbols )
         crc32_bytes_read = pad_bits2bytes ( crc32_bits )
         crc32_bytes_calculated = create_crc32_bytes ( payload_bytes )
         if ( crc32_bytes_read == crc32_bytes_calculated ).all () :
@@ -428,11 +303,11 @@ class RxPacket_v0_1_13 :
             return
 
     def correct_cfo ( self ) -> None :
-        self.samples_corrected = modulation.zero_quadrature ( corrections.full_compensation_v0_1_5 ( self.samples_filtered , modulation.generate_barker13_bpsk_samples_v0_1_7 ( True ) ) )
+        self.samples_corrected = modulation.zero_quadrature ( corrections.full_compensation_v0_0_0 ( self.samples_filtered , modulation.generate_barker13_bpsk_samples_v0_1_7 ( True ) ) )
 
     def plot_complex_samples_filtered_and_corrected ( self , title = "" , marker : bool = False , peaks : NDArray[ np.uint32 ] = None ) -> None :
-        plot.complex_waveform_v0_1_6 ( self.samples_filtered , f"{title} {self.samples_filtered.size=}" , marker_squares = marker , marker_peaks = peaks )
-        plot.complex_waveform_v0_1_6 ( self.samples_corrected , f"{title} {self.samples_corrected.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.samples_filtered , f"{title} {self.samples_filtered.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.samples_corrected , f"{title} {self.samples_corrected.size=}" , marker_squares = marker , marker_peaks = peaks )
 
     def analyze ( self , samples ) -> None :
         sdr.analyze_rx_signal ( samples )
@@ -443,7 +318,7 @@ class RxPacket_v0_1_13 :
         )
 
 @dataclass ( slots = True , eq = False )
-class RxFrames_v0_1_13 :
+class RxFrames_v0_0_0 :
     
     samples_filtered : NDArray[ np.complex128 ]
     deep : bool = False
@@ -460,7 +335,7 @@ class RxFrames_v0_1_13 :
     
     def __post_init__ ( self ) -> None :
         self.samples_filtered_len = np.uint32 ( len ( self.samples_filtered ) )
-        self.sync_sequence_peaks = detect_sync_sequence_peaks_v0_1_15 ( self.samples_filtered , modulation.generate_barker13_bpsk_samples_v0_1_7 ( True ) , deep = self.deep )
+        self.sync_sequence_peaks = detect_sync_sequence_peaks_v0_1_15 ( self.samples_filtered , modulation.generate_barker13_bpsk_samples_v0_0_0 ( True ) , deep = self.deep )
         if self.sync_sequence_peaks.size > 0 and settings["log"]["verbose_2"] : print ( f"Detected { self.sync_sequence_peaks=}" )
         if self.sync_sequence_peaks.size > 0 and settings["log"]["verbose_2"] : self.plot_complex_samples_filtered ( title = f"RxFrames_v0_1_9 __post_init__" , marker = False , peaks = self.sync_sequence_peaks )
         if settings["log"]["verbose_1"] : ts = t.perf_counter_ns ()
@@ -476,7 +351,7 @@ class RxFrames_v0_1_13 :
     
     def samples2bits ( self , samples : NDArray[ np.complex128 ] ) -> NDArray[ np.uint8 ] :
         sync_sequence_symbols = samples [ : : self.sps ]
-        return modulation.bpsk_symbols_2_bits_v0_1_7 ( sync_sequence_symbols )
+        return modulation.bpsk_symbols_2_bits_v0_0_0 ( sync_sequence_symbols )
 
     def samples2uint16 ( self , samples : NDArray[ np.complex128 ] ) -> np.uint16 :
         bits = self.samples2bits ( samples )
@@ -534,7 +409,7 @@ class RxFrames_v0_1_13 :
                             add2log_packet ( f"{t.time()},{has_frame=},{idx}")
                             if settings["log"]["verbose_2"] : print ( f"{ idx= } { samples_name } { frame_name= } { has_sync_sequence= }, { has_frame= }" )
                             return idx
-                        packet = RxPacket_v0_1_13 ( samples_filtered = self.samples_filtered [ idx : packet_end_idx ] , packet_start_idx = crc32_end_idx - idx )
+                        packet = RxPacket_v0_0_0 ( samples_filtered = self.samples_filtered [ idx : packet_end_idx ] , packet_start_idx = crc32_end_idx - idx )
                         if packet.has_packet :
                             self.samples_payloads_bytes = np.concatenate ( [ self.samples_payloads_bytes , packet.payload_bytes ] )
                             add2log_packet(f"{t.time()},{packet.has_packet=},{idx}")
@@ -544,13 +419,13 @@ class RxFrames_v0_1_13 :
         return idx
 
     def plot_complex_samples_filtered ( self , title = "" , marker : bool = False , peaks : NDArray[ np.uint32 ] = None ) -> None :
-        plot.complex_waveform_v0_1_6 ( self.samples_filtered , f"{title} {self.samples_filtered.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.samples_filtered , f"{title} {self.samples_filtered.size=}" , marker_squares = marker , marker_peaks = peaks )
 
     def __repr__ ( self ) -> str :
         return ( f"{ self.frames.size= } , dtype = { self.frames.dtype= }")
 
 @dataclass ( slots = True , eq = False )
-class RxSamples_v0_1_16 :
+class RxSamples_v0_0_0 :
     
     pluto_rx_ctx : Pluto | None = None
     #samples_filename : str | None = None
@@ -562,7 +437,7 @@ class RxSamples_v0_1_16 :
     has_amp_greater_than_ths : bool = False
     ths : float = 1000.0
     sync_sequence_peaks : NDArray[ np.uint32 ] = field ( init = False )
-    frames : RxFrames_v0_1_13 = field ( init = False )
+    frames : RxFrames_v0_0_0 = field ( init = False )
     samples_leftovers : NDArray[ np.complex128 ] | None = field ( default = None )
 
     def __post_init__ ( self ) -> None :
@@ -578,9 +453,9 @@ class RxSamples_v0_1_16 :
             self.sample_initial_assesment ()
         elif samples_filename is not None :
             if samples_filename.endswith('.npy'):
-                self.samples = ops_file.open_samples_from_npf ( samples_filename )
+                self.samples = file.open_complex_samples_from_npf ( samples_filename )
             elif samples_filename.endswith('.csv'):
-                self.samples = ops_file.open_csv_and_load_np_complex128 ( samples_filename )
+                self.samples = file.open_complex_samples_from_csv ( samples_filename )
             else:
                 raise ValueError(f"Error: unsupported file format for {samples_filename}! Supported formats: .npy, .csv")
             if previous_samples_leftovers is not None :
@@ -589,11 +464,11 @@ class RxSamples_v0_1_16 :
             raise ValueError ( "Either pluto_rx_ctx or samples_filename must be provided." )
 
     def filter_samples ( self ) -> None :
-        self.samples_filtered = filters.apply_rrc_rx_filter_v0_1_6 ( self.samples )
+        self.samples_filtered = filters.apply_rrc_rx_filter_v0_0_0 ( self.samples )
 
     def detect_frames ( self , deep : bool = False ) -> None :
         self.filter_samples ()
-        self.frames = RxFrames_v0_1_13 ( samples_filtered = self.samples_filtered , deep = deep )
+        self.frames = RxFrames_v0_0_0 ( samples_filtered = self.samples_filtered , deep = deep )
         if self.frames.has_leftovers :
             self.clip_samples_leftovers ()
 
@@ -601,21 +476,21 @@ class RxSamples_v0_1_16 :
         self.has_amp_greater_than_ths = np.any ( np.abs ( self.samples ) > self.ths )
 
     def plot_complex_samples ( self , title = "" , marker : bool = False , peaks : NDArray[ np.uint32 ] = None ) -> None :
-        plot.complex_waveform_v0_1_6 ( self.samples , f"RxSamples {title} {self.samples.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.samples , f"RxSamples {title} {self.samples.size=}" , marker_squares = marker , marker_peaks = peaks )
 
     def plot_complex_samples_filtered ( self , title = "" , marker : bool = False , peaks : NDArray[ np.uint32 ] = None ) -> None :
-        plot.complex_waveform_v0_1_6 ( self.samples_filtered , f"RxSamples filtered {title} {self.samples_filtered.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.samples_filtered , f"RxSamples filtered {title} {self.samples_filtered.size=}" , marker_squares = marker , marker_peaks = peaks )
 
     def plot_complex_samples_corrected ( self , title = "" , marker : bool = False , peaks : NDArray[ np.uint32 ] = None ) -> None :
-        plot.complex_waveform_v0_1_6 ( self.samples_corrected , f"RxSamples corrected {title} {self.samples_corrected.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.samples_corrected , f"RxSamples corrected {title} {self.samples_corrected.size=}" , marker_squares = marker , marker_peaks = peaks )
 
     def save_complex_samples_2_npf ( self , filename : str ) -> None :
         filename_with_timestamp = add_timestamp_2_filename ( filename )
-        ops_file.save_complex_samples_2_npf ( filename_with_timestamp , self.samples )
+        file.save_complex_samples_2_npf ( filename_with_timestamp , self.samples )
 
     def save_complex_samples_2_csv ( self , filename : str ) -> None :
         filename_with_timestamp = add_timestamp_2_filename ( filename )
-        ops_file.save_complex_samples_2_csv ( filename_with_timestamp , self.samples )
+        file.save_complex_samples_2_csv ( filename_with_timestamp , self.samples )
 
     def __repr__ ( self ) -> str :
         return (
@@ -645,7 +520,7 @@ class RxSamples_v0_1_16 :
         self.samples_leftovers = self.samples [ self.frames.samples_leftovers_start_idx : ]
 
 @dataclass ( slots = True , eq = False )
-class RxPluto_v0_1_16 :
+class RxPluto_v0_0_0 :
 
     sn : str | None = None
     gain_control_mode_chan0 : str = field ( default = sdr.GAIN_CONTROL )
@@ -653,7 +528,7 @@ class RxPluto_v0_1_16 :
     
     # Pola uzupełnianie w __post_init__
     pluto_rx_ctx : Pluto | None = None
-    samples : RxSamples_v0_1_16 = field ( init = False )
+    samples : RxSamples_v0_0_0 = field ( init = False )
 
     def __post_init__ ( self ) -> None :
         self.init_pluto_rx ()
@@ -661,13 +536,13 @@ class RxPluto_v0_1_16 :
     def init_pluto_rx ( self ) -> None :
         if self.sn is not None :
             self.pluto_rx_ctx = sdr.init_pluto_v0_1_17 ( sn = self.sn , gain_control_mode_chan0 = self.gain_control_mode_chan0 , rx_gain_chan0_int = self.rx_gain_chan0_int )
-            self.samples = RxSamples_v0_1_16 ( pluto_rx_ctx = self.pluto_rx_ctx )
+            self.samples = RxSamples_v0_0_0 ( pluto_rx_ctx = self.pluto_rx_ctx )
         else :
-            self.samples = RxSamples_v0_1_16 ()
+            self.samples = RxSamples_v0_0_0 ()
 
     def __repr__ ( self ) -> str :
         return (
-            f"{self.samples.samples.size=}, { self.pluto_rx_ctx= }" if self.sn is not None else f" no ADALM-Pluto connected,"
+            f"{ self.pluto_rx_ctx= }, { self.samples.samples.size= }" if self.sn is not None else f"No ADALM-Pluto connected."
         )
 
 @dataclass ( slots = True , eq = False )
@@ -773,10 +648,10 @@ class TxSamples_v0_1_12 :
         self.frame = TxFrame_v0_1_11 ( tx_packet = tx_packet )
 
     def create_samples_bpsk_symbols ( self ) -> None :
-        self.samples_bpsk_symbols = modulation.create_bpsk_symbols_v0_1_6_fastest_short ( self.frame.frame_bits )
+        self.samples_bpsk_symbols = modulation.create_bpsk_symbols_v0_0_0_fastest_short ( self.frame.frame_bits )
 
     def create_samples_filtered ( self ) -> None :
-        self.samples_filtered = np.ravel ( filters.apply_tx_rrc_filter_v0_1_6 ( self.samples_bpsk_symbols ) ).astype ( np.complex128 , copy = False )
+        self.samples_filtered = np.ravel ( filters.apply_tx_rrc_filter_v0_0_0 ( self.samples_bpsk_symbols ) ).astype ( np.complex128 , copy = False )
 
     def create_samples_4pluto ( self ) -> None :
         self.samples4pluto = sdr.scale_to_pluto_dac_v0_1_11 ( samples = self.samples_filtered , scale = 1.0 )
@@ -815,18 +690,18 @@ class TxSamples_v0_1_12 :
         
 
     def plot_symbols ( self , title = "" , constellation : bool = False ) -> None :
-        plot.plot_symbols ( self.samples_bpsk_symbols , f"{title}" )
+        plot.plot_symbols_v0_0_0 ( self.samples_bpsk_symbols , f"{title}" )
         if constellation :
-            plot.complex_symbols_v0_1_6 ( self.samples_bpsk_symbols , f"{title}" )
+            plot.complex_symbols_v0_0_0 ( self.samples_bpsk_symbols , f"{title}" )
 
     def plot_complex_samples_filtered ( self , title = "" ) -> None :
-        plot.complex_waveform_v0_1_6 ( self.samples_filtered , f"{title} {self.samples_filtered.size=}" , marker_squares = False )
+        plot.complex_waveform_v0_0_0 ( self.samples_filtered , f"{title} {self.samples_filtered.size=}" , marker_squares = False )
 
     def plot_complex_samples4pluto ( self , title = "" ) -> None :
-        plot.complex_waveform_v0_1_6 ( self.samples4pluto , f"{title} {self.samples4pluto.size=}" , marker_squares = False )
+        plot.complex_waveform_v0_0_0 ( self.samples4pluto , f"{title} {self.samples4pluto.size=}" , marker_squares = False )
 
     def plot_samples_spectrum ( self , title = "" ) -> None :
-        plot.spectrum_occupancy ( self.samples4pluto , 1024 , title )
+        plot.spectrum_occupancy_v0_0_0 ( self.samples4pluto , 1024 , title )
 
     def __repr__ ( self ) -> str :
         return ( f"{ self.frame.frame_bytes= }, { self.samples.size= }" )
