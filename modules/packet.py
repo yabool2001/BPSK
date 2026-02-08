@@ -535,7 +535,7 @@ class RxPluto_v0_0_0 :
 
     def init_pluto_rx ( self ) -> None :
         if self.sn is not None :
-            self.pluto_rx_ctx = sdr.init_pluto_v0_1_17 ( sn = self.sn , gain_control_mode_chan0 = self.gain_control_mode_chan0 , rx_gain_chan0_int = self.rx_gain_chan0_int )
+            self.pluto_rx_ctx = sdr.init_pluto_v0_0_0 ( sn = self.sn , gain_control_mode_chan0 = self.gain_control_mode_chan0 , rx_gain_chan0_int = self.rx_gain_chan0_int )
             self.samples = RxSamples_v0_0_0 ( pluto_rx_ctx = self.pluto_rx_ctx )
         else :
             self.samples = RxSamples_v0_0_0 ()
@@ -707,7 +707,7 @@ class TxSamples_v0_1_12 :
         return ( f"{ self.frame.frame_bytes= }, { self.samples.size= }" )
 
 @dataclass ( slots = True , eq = False )
-class TxPluto_v0_1_16 :
+class TxPluto_v0_0_0 :
     
     sn : str
     tx_gain_float : float = field ( default = sdr.TX_GAIN )
@@ -720,7 +720,7 @@ class TxPluto_v0_1_16 :
         self.init_pluto_tx ()
 
     def init_pluto_tx ( self ) -> None :
-        self.pluto_tx_ctx = sdr.init_pluto_v0_1_17 ( sn = self.sn , tx_gain_float = self.tx_gain_float )
+        self.pluto_tx_ctx = sdr.init_pluto_v0_0_0 ( sn = self.sn , tx_gain_float = self.tx_gain_float )
         self.samples = TxSamples_v0_1_12 ( pluto_tx_ctx = self.pluto_tx_ctx )
 
     def __repr__ ( self ) -> str :

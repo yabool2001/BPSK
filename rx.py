@@ -5,6 +5,7 @@ source .venv/bin/activate
 python tx.py
 
 ssh do fedora na Surface 9 Pro: ssh yabool2001@192.168.1.60
+Invalid rx_output_type: invalid. Must be raw or SI
 '''
 
 import numpy as np
@@ -46,12 +47,12 @@ with open ( wrt_filename_log , "w" ) as wrt_file :
 received_bytes : NDArray[ np.uint8 ] = np.array ( [] , dtype = np.uint8 )
 previous_samples_leftovers : NDArray[ np.complex128 ] = np.array ( [] , dtype = np.complex128 )
 
-real = False
+real = True
 debug = False
 plt = True
 wrt = False
 
-rx_pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_RX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
+rx_pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_TX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
 print ( f"\n{ rx_pluto= }" )
 
 while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_bytes.size == 0 ) :
