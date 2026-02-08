@@ -52,7 +52,7 @@ debug = False
 plt = True
 wrt = False
 
-rx_pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_TX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
+rx_pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_RX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
 print ( f"\n{ rx_pluto= }" )
 
 while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_bytes.size == 0 ) :
