@@ -33,7 +33,7 @@ def zero_quadrature ( samples : NDArray[ np.complex128 ] ) -> NDArray[ np.comple
 
 def generate_barker13_bpsk_samples_v0_0_0 ( clipped = False ) -> NDArray[ np.complex128 ] :
     symbols = create_bpsk_symbols ( packet.BARKER13_BITS )
-    samples = filters.apply_tx_rrc_filter_v0_1_3 ( symbols , True )
+    samples = filters.apply_tx_rrc_filter_v0_0_0 ( symbols , True )
     if clipped :
         tail_length = ( filters.SPAN - 1 ) // 2 * SPS  # Oblicz ogon filtra RRC
         samples = samples[ : -tail_length ]  # Przytnij ogon na końcu

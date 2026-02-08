@@ -48,7 +48,7 @@ previous_samples_leftovers : NDArray[ np.complex128 ] = np.array ( [] , dtype = 
 
 real = False
 debug = False
-plt = False
+plt = True
 wrt = False
 
 rx_pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_RX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
@@ -60,9 +60,8 @@ while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_by
         rx_pluto_samples = packet.RxSamples_v0_0_0 ( pluto_rx_ctx = rx_pluto.pluto_rx_ctx )
         rx_pluto_samples.rx ( previous_samples_leftovers = previous_samples_leftovers )
     else :
-        rx_pluto_samples.rx ( samples_filename = samples_filename )
         rx_pluto_samples = packet.RxSamples_v0_0_0 ()
-    
+        rx_pluto_samples.rx ( samples_filename = samples_filename )    
     if debug :
         if rx_pluto_samples.has_amp_greater_than_ths : rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } { rx_pluto_samples.has_amp_greater_than_ths= }" )
     
