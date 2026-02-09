@@ -13,6 +13,7 @@ RX_GAIN = 71                        # receive gain
 GAIN_CONTROL = "slow_attack"        # gain control mode
 SAMPLES_BUFFER = 65536
 SAMPLES_BUFFER_SIZE = 65536
+RX_OUTPUT_TYPE = "raw"
 
 [ADALM-Pluto.URI]
 IP = "ip:192.168.2.1"

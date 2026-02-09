@@ -34,9 +34,9 @@ else :
     gain_control_mode_chan0 = toml_settings["ADALM-Pluto"][ "GAIN_CONTROL" ]
     rx_gain_chan0_int = int ( toml_settings["ADALM-Pluto"][ "RX_GAIN" ] )
 
-samples_filename = "samples/rx_samples_00_issue40_002.0.npy"
+samples_filename = "samples/rx_samples_00_issue40_002.0.si.npy"
 
-wrt_filename_npy = "samples/rx_samples_0.1.17.npy"
+wrt_filename_npy = "samples/rx_samples_0.0.0.npy"
 wrt_filename_csv = "samples.csv/rx_samples_last.csv"
 wrt_filename_log = "logs/rx_perf_log.csv"
 
@@ -66,6 +66,11 @@ while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_by
     if debug :
         if rx_pluto_samples.has_amp_greater_than_ths : rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } { rx_pluto_samples.has_amp_greater_than_ths= }" )
     
+    rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } {rx_pluto_samples.samples.size=}" )
+    print ( f"{ script_filename } {rx_pluto_samples.samples.dtype=}, {rx_pluto=}" )
+    print ( f"{ script_filename } {rx_pluto_samples.samples[:10]=}" )
+    break
+
     rx_pluto_samples.detect_frames ( deep = False )
     
     if rx_pluto_samples.frames.has_leftovers :

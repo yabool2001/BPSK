@@ -21,10 +21,11 @@ F_C = int ( toml_settings["ADALM-Pluto"][ "F_C" ] )    # Carrier frequency [Hz]
 BW  = int ( toml_settings["ADALM-Pluto"][ "BW" ] )     # BandWidth [Hz]
 #F_S = 521100     # Sampling frequency [Hz] >= 521e3 && <
 F_S = int ( BW * 3 if ( BW * 3 ) >= 521100 and ( BW * 3 ) <= 61440000 else 521100 ) # Sampling frequency [Hz]
-TX_GAIN = float ( toml_settings["ADALM-Pluto"][ "TX_GAIN" ] )
-RX_GAIN = int ( toml_settings["ADALM-Pluto"][ "RX_GAIN" ] )
-GAIN_CONTROL = toml_settings["ADALM-Pluto"][ "GAIN_CONTROL" ]
-SAMPLES_BUFFER_SIZE = int ( toml_settings["ADALM-Pluto"][ "SAMPLES_BUFFER_SIZE" ] )
+TX_GAIN = float ( toml_settings[ "ADALM-Pluto" ][ "TX_GAIN" ] )
+RX_GAIN = int ( toml_settings[ "ADALM-Pluto" ][ "RX_GAIN" ] )
+GAIN_CONTROL = toml_settings[ "ADALM-Pluto" ][ "GAIN_CONTROL" ]
+SAMPLES_BUFFER_SIZE = int ( toml_settings[ "ADALM-Pluto" ][ "SAMPLES_BUFFER_SIZE" ] )
+RX_OUTPUT_TYPE = toml_settings[ "ADALM-Pluto" ][ "RX_OUTPUT_TYPE" ]
 PLUTO_DAC_SCALE = 16384  # precomputed value of 2**14 for slight performance gain. The PlutoSDR expects samples to be between -2^14 and +2^14, not -1 and +1 like some SDRs
 
 def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL , rx_gain_chan0_int : int = RX_GAIN ) -> adi.Pluto :
@@ -33,12 +34,6 @@ def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_contro
     if uri is None:
         raise ValueError ( f"Error! ADALM-Pluto SN: {sn} is not connected. Check USB connection or IP settings.")
     sdr = adi.Pluto ( uri )
-    
-    try:
-        sdr.rx_output_type = "invalid"
-    except ValueError as e:
-        print(f"Dostępne opcje to: {e}")
-
     sdr.tx_lo = F_C
     sdr.rx_lo = F_C
     sdr.sample_rate = F_S
@@ -47,7 +42,7 @@ def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_contro
     sdr.tx_hardwaregain_chan0 = float ( tx_gain_float )
     sdr.gain_control_mode_chan0 = gain_control_mode_chan0
     sdr.rx_hardwaregain_chan0 = int ( rx_gain_chan0_int )
-    sdr.rx_output_type = "SI"
+    sdr.rx_output_type = RX_OUTPUT_TYPE # "SI" gives samples in volts, "raw" gives integer values. SI is more intuitive for processing, but raw can be more efficient for high-throughput applications.
     sdr.tx_destroy_buffer ()
     sdr.tx_cyclic_buffer = False
     time.sleep ( 0.2 ) #delay after setting device parameters
