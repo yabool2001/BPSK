@@ -16,7 +16,6 @@ with open ( "settings.toml" , "rb" ) as settings_file :
 
 PLUTO_TX_SN = toml_settings["ADALM-Pluto"]["URI"]["SN_TX"]
 PLUTO_RX_SN = toml_settings["ADALM-Pluto"]["URI"]["SN_RX"]
-
 F_C = int ( toml_settings["ADALM-Pluto"][ "F_C" ] )    # Carrier frequency [Hz]
 BW  = int ( toml_settings["ADALM-Pluto"][ "BW" ] )     # BandWidth [Hz]
 #F_S = 521100     # Sampling frequency [Hz] >= 521e3 && <
@@ -29,6 +28,75 @@ RX_OUTPUT_TYPE = toml_settings[ "ADALM-Pluto" ][ "RX_OUTPUT_TYPE" ]
 PLUTO_DAC_SCALE = 16384  # precomputed value of 2**14 for slight performance gain. The PlutoSDR expects samples to be between -2^14 and +2^14, not -1 and +1 like some SDRs
 
 def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL , rx_gain_chan0_int : int = RX_GAIN ) -> adi.Pluto :
+    '''Zarówno dla odbiornika (ADC), jak i nadajnika (DAC), kanały nazywają się tak samo:
+        voltage0 (kanał I - In-phase)
+        voltage1 (kanał Q - Quadrature)
+    Jedyną rzeczą, która je odróżnia w funkcji find_channel, jest flaga kierunku ( True dla wyjścia/TX , False dla wejścia/RX ).'''
+
+    uri = get_uri ( sn )
+    if uri is None:
+        raise ValueError ( f"Error! ADALM-Pluto SN: {sn} is not connected. Check USB connection or IP settings.")
+    ctx = iio.Context ( uri )
+    rx_dev = ctx.find_device ( "cf-ad9361-lpc" )   # To jest "rura RX" (strumieniowanie)
+    tx_dev = ctx.find_device ( "cf-ad9361-dds-core-lpc" ) # To jest "rura TX"
+    phy = ctx.find_device ( "ad9361-phy" )      # # To jest "mózg" (ustawienia RF)
+    
+    # Ustawienie Częstotliwości (LO). W AD9361: altvoltage0 to RX LO, altvoltage1 to TX LO (kanały wyjściowe w PHY)
+    rx_lo_chan = phy.find_channel ( "altvoltage0" , True )
+    tx_lo_chan = phy.find_channel ( "altvoltage1" , True )
+    rx_lo_chan.attrs[ "frequency" ].value = str ( int ( F_C ) )
+    tx_lo_chan.attrs[ "frequency" ].value = str ( int ( F_C ) )
+    
+    # Ustawienie Sample Rate i Bandwidth. Ustawiamy to na kanale fizycznym (zazwyczaj voltage0 w PHY steruje całym chipem)
+    rx_phy_chan = phy.find_channel ( "voltage0" , False ) # False = Input (RX)
+    tx_phy_chan = phy.find_channel ( "voltage0" , True )  # True = Output (TX)
+    
+    # Sample rate (wpływa na oba tory zazwyczaj, ale ustawiamy na RX)
+    rx_phy_chan.attrs[ "sampling_frequency" ].value = str ( int ( F_S ) )
+    # Bandwidth
+    rx_phy_chan.attrs[ "rf_bandwidth" ].value = str ( int ( BW ) )
+    
+    # RX Gain
+    rx_phy_chan.attrs[ "gain_control_mode" ].value = gain_control_mode_chan0 
+    # Jeśli manual, to ustawiamy wartość (zawsze jako string):
+    if gain_control_mode_chan0 == "manual":
+        rx_phy_chan.attrs[ "hardwaregain" ].value = str ( int ( rx_gain_chan0_int ) )
+
+    # TX Gain (Tłumienie) - w AD9361 to zazwyczaj ujemne dB lub tłumienie
+    tx_phy_chan.attrs[ "hardwaregain" ].value = str ( int ( tx_gain_float ) )
+
+    # Konfiguracja Bufora i Strumieniowania (To odpowiada sdr.rx_buffer_size)
+    # Musimy włączyć kanały I oraz Q w urządzeniu strumieniującym (nie PHY!)
+    rx_v0 = rx_dev.find_channel ( "voltage0" , False )
+    rx_v1 = rx_dev.find_channel ( "voltage1" , False )
+    rx_v0.enabled = True
+    rx_v1.enabled = True
+
+    # Tworzenie bufora (sdr.rx_buffer_size = SAMPLES_BUFFER_SIZE)
+    # Trzeci parametr False = Cyclic Buffer wyłączony
+    return iio.Buffer ( rx_dev , SAMPLES_BUFFER_SIZE , False ) # False = nie cykliczny
+
+    return
+'''
+    sdr = adi.Pluto ( uri )
+    sdr.tx_lo = F_C
+    sdr.rx_lo = F_C
+    sdr.sample_rate = F_S
+    sdr.rx_rf_bandwidth = BW
+    sdr.rx_buffer_size = SAMPLES_BUFFER_SIZE
+    sdr.tx_hardwaregain_chan0 = float ( tx_gain_float )
+    sdr.gain_control_mode_chan0 = gain_control_mode_chan0
+    sdr.rx_hardwaregain_chan0 = int ( rx_gain_chan0_int )
+    sdr.rx_output_type = RX_OUTPUT_TYPE # "SI" gives samples in volts, "raw" gives integer values. SI is more intuitive for processing, but raw can be more efficient for high-throughput applications.
+    sdr.tx_destroy_buffer ()
+    sdr.tx_cyclic_buffer = False
+    time.sleep ( 0.2 ) #delay after setting device parameters
+    if toml_settings[ "log" ][ "verbose_0" ] : print ( f"{sn=} {F_C=} {BW=} {F_S=}" )
+    if toml_settings[ "log" ][ "verbose_2" ] : help ( adi.Pluto.rx_output_type ) ; help ( adi.Pluto.gain_control_mode_chan0 ) ; help ( adi.Pluto.tx_lo ) ; help ( adi.Pluto.tx  )
+    
+    return sdr
+'''
+def init_pluto_v0_0_0_old ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL , rx_gain_chan0_int : int = RX_GAIN ) -> adi.Pluto :
     
     uri = get_uri ( sn )
     if uri is None:

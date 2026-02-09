@@ -52,8 +52,12 @@ debug = False
 plt = True
 wrt = False
 
-rx_pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_RX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
-print ( f"\n{ rx_pluto= }" )
+pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_RX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
+print ( f"\n{ pluto= }" )
+pluto.rx_buf.refill ()
+raw_samples = pluto.rx_buf.read ()
+print ( raw_samples[:10] )
+
 
 while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_bytes.size == 0 ) :
     
@@ -66,9 +70,9 @@ while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_by
     if debug :
         if rx_pluto_samples.has_amp_greater_than_ths : rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } { rx_pluto_samples.has_amp_greater_than_ths= }" )
     
-    rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } {rx_pluto_samples.samples.size=}" )
-    print ( f"{ script_filename } {rx_pluto_samples.samples.dtype=}, {rx_pluto=}" )
-    print ( f"{ script_filename } {rx_pluto_samples.samples[:10]=}" )
+    #rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } {rx_pluto_samples.samples.size=}" )
+    #print ( f"{ script_filename } {rx_pluto_samples.samples.dtype=}, {rx_pluto=}" )
+    #print ( f"{ script_filename } {rx_pluto_samples.samples[:10]=}" )
     break
 
     rx_pluto_samples.detect_frames ( deep = False )
