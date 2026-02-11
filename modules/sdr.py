@@ -27,7 +27,7 @@ SAMPLES_BUFFER_SIZE = int ( toml_settings[ "ADALM-Pluto" ][ "SAMPLES_BUFFER_SIZE
 RX_OUTPUT_TYPE = toml_settings[ "ADALM-Pluto" ][ "RX_OUTPUT_TYPE" ]
 PLUTO_DAC_SCALE = 16384  # precomputed value of 2**14 for slight performance gain. The PlutoSDR expects samples to be between -2^14 and +2^14, not -1 and +1 like some SDRs
 
-def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL , rx_gain_chan0_int : int = RX_GAIN ) -> adi.Pluto :
+def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL , rx_gain_chan0_int : int = RX_GAIN ) -> tuple[ iio.Context , iio.Buffer ] :
     '''Zarówno dla odbiornika (ADC), jak i nadajnika (DAC), kanały nazywają się tak samo:
         voltage0 (kanał I - In-phase)
         voltage1 (kanał Q - Quadrature)
@@ -74,8 +74,62 @@ def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_contro
 
     # Tworzenie bufora (sdr.rx_buffer_size = SAMPLES_BUFFER_SIZE)
     # Trzeci parametr False = Cyclic Buffer wyłączony
-    return iio.Buffer ( rx_dev , SAMPLES_BUFFER_SIZE , False ) # False = nie cykliczny
+    return ctx , iio.Buffer ( rx_dev , SAMPLES_BUFFER_SIZE , False ) # False = nie cykliczny
 
+def get_uri ( serial : str , type_preference : str = "usb" ) -> str | None :
+    """ Zwraca URI kontekstu IIO dla danego numeru seryjnego.
+    
+    Arguments:
+    - serial (str): numer seryjny urządzenia (pełny).
+    - type_preference (str): "usb" lub "ip". Jeśli "ip", preferuje ip: ale wraca do usb: jeśli ip nie znaleziono.
+
+    Returns:
+    - str: URI w formacie usb:x.y.z lub ip:adres
+    - None: jeśli nie znaleziono pasującego urządzenia """
+
+    contexts = iio.scan_contexts ()
+
+    ip_match = None
+    usb_match = None
+
+    for uri , description in contexts.items () :
+        if serial in description:
+            if uri.startswith ( "ip:" ) and type_preference == "ip" :
+                ip_match = uri
+            elif uri.startswith ( "usb:" ) :
+                usb_match = uri
+
+    if type_preference == "ip" and ip_match is not None :
+        return ip_match or usb_match
+    elif type_preference == "usb" and usb_match is not None :
+        return usb_match
+
+    return None
+
+def print_pluto_settings ( pluto_ctx : iio.Context ) :
+    """ Wyświetlanie konfiguracji obiektu 'iio.Context'. """
+
+
+    # 2. Znalezienie urządzenia PHY (tam siedzi konfiguracja RF)
+    phy = pluto_ctx.find_device ( "ad9361-phy" )
+    
+    print(f"\n=== KONFIGURACJA SPRZĘTOWA: {phy.name} ===")
+    
+    # A. Atrybuty globalne urządzenia (np. tryb ENSM, kalibracje)
+    print("\n[Ustawienia Globalne]")
+    for attr in phy.attrs:
+        print(f"  {attr}: {phy.attrs[attr].value}")
+
+    # B. Atrybuty kanałów (Częstotliwości, Gain, Bandwidth)
+    print("\n[Ustawienia Kanałów]")
+    for chan in phy.channels:
+        # Pomiń kanały, które nie są istotne (opcjonalnie)
+        direction = "TX" if chan.output else "RX"
+        print(f"  Kanał: {chan.id} ({direction})")
+        
+        for attr in chan.attrs:
+            val = chan.attrs[attr].value
+            print(f"    {attr}: {val}")
     return
 '''
     sdr = adi.Pluto ( uri )
@@ -118,37 +172,6 @@ def init_pluto_v0_0_0_old ( sn : str , tx_gain_float : float = TX_GAIN , gain_co
     if toml_settings[ "log" ][ "verbose_2" ] : help ( adi.Pluto.rx_output_type ) ; help ( adi.Pluto.gain_control_mode_chan0 ) ; help ( adi.Pluto.tx_lo ) ; help ( adi.Pluto.tx  )
     
     return sdr
-
-def get_uri ( serial : str , type_preference : str = "usb" ) -> str | None :
-    """
-    Zwraca URI kontekstu IIO dla danego numeru seryjnego.
-    
-    Arguments:
-    - serial (str): numer seryjny urządzenia (pełny).
-    - type_preference (str): "usb" lub "ip". Jeśli "ip", preferuje ip: ale wraca do usb: jeśli ip nie znaleziono.
-
-    Returns:
-    - str: URI w formacie usb:x.y.z lub ip:adres
-    - None: jeśli nie znaleziono pasującego urządzenia
-    """
-    contexts = iio.scan_contexts ()
-
-    ip_match = None
-    usb_match = None
-
-    for uri , description in contexts.items () :
-        if serial in description:
-            if uri.startswith ( "ip:" ) and type_preference == "ip" :
-                ip_match = uri
-            elif uri.startswith ( "usb:" ) :
-                usb_match = uri
-
-    if type_preference == "ip" and ip_match is not None :
-        return ip_match or usb_match
-    elif type_preference == "usb" and usb_match is not None :
-        return usb_match
-
-    return None
 
 
 '''

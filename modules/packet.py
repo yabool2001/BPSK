@@ -1,3 +1,4 @@
+import iio
 import numpy as np
 import os
 import time as t
@@ -427,7 +428,7 @@ class RxFrames_v0_0_0 :
 @dataclass ( slots = True , eq = False )
 class RxSamples_v0_0_0 :
     
-    pluto_rx_ctx : Pluto | None = None
+    pluto_rx_buf : iio.Buffer | None = None
 
     # Pola uzupełnianie w __post_init__
     samples : NDArray[ np.complex128 ] = field ( init = False )
@@ -443,11 +444,13 @@ class RxSamples_v0_0_0 :
             self.samples_filtered = np.array ( [] , dtype = np.complex128 )
 
     def rx ( self , previous_samples_leftovers : NDArray[ np.complex128 ] | None = None , samples_filename : str | None = None ) -> None :
-        if self.pluto_rx_ctx is not None :
+        if self.pluto_rx_buf is not None :
+            raw_bytes = self.pluto_rx_buf.read ()
+            samples = np.frombuffer ( raw_bytes , dtype = np.int16 )
             if previous_samples_leftovers is None :
-                self.samples = self.pluto_rx_ctx.rx ()
+                self.samples = samples
             else :
-                self.samples = np.concatenate ( [ previous_samples_leftovers , self.pluto_rx_ctx.rx () ] )
+                self.samples = np.concatenate ( [ previous_samples_leftovers , samples ] )
             self.sample_initial_assesment ()
         elif samples_filename is not None :
             if samples_filename.endswith('.npy'):
@@ -525,7 +528,8 @@ class RxPluto_v0_0_0 :
     rx_gain_chan0_int : int = field ( default = sdr.RX_GAIN )
     
     # Pola uzupełnianie w __post_init__
-    rx_buf : Pluto | None = None
+    pluto_rx_ctx : iio.Context | None = None
+    pluto_rx_buf : iio.Buffer | None = None
     samples : RxSamples_v0_0_0 = field ( init = False )
 
     def __post_init__ ( self ) -> None :
@@ -533,34 +537,8 @@ class RxPluto_v0_0_0 :
 
     def init_pluto_rx ( self ) -> None :
         if self.sn is not None :
-            self.rx_buf = sdr.init_pluto_v0_0_0 ( sn = self.sn , gain_control_mode_chan0 = self.gain_control_mode_chan0 , rx_gain_chan0_int = self.rx_gain_chan0_int )
-            self.samples = RxSamples_v0_0_0 ( pluto_rx_ctx = self.rx_buf )
-        else :
-            self.samples = RxSamples_v0_0_0 ()
-
-    def __repr__ ( self ) -> str :
-        return (
-            f"{ self.rx_buf= }, { self.samples.samples.size= }" if self.sn is not None else f"No ADALM-Pluto connected."
-        )
-
-@dataclass ( slots = True , eq = False )
-class RxPluto_v0_0_0_old :
-
-    sn : str | None = None
-    gain_control_mode_chan0 : str = field ( default = sdr.GAIN_CONTROL )
-    rx_gain_chan0_int : int = field ( default = sdr.RX_GAIN )
-    
-    # Pola uzupełnianie w __post_init__
-    pluto_rx_ctx : Pluto | None = None
-    samples : RxSamples_v0_0_0 = field ( init = False )
-
-    def __post_init__ ( self ) -> None :
-        self.init_pluto_rx ()
-
-    def init_pluto_rx ( self ) -> None :
-        if self.sn is not None :
-            self.pluto_rx_ctx = sdr.init_pluto_v0_0_0 ( sn = self.sn , gain_control_mode_chan0 = self.gain_control_mode_chan0 , rx_gain_chan0_int = self.rx_gain_chan0_int )
-            self.samples = RxSamples_v0_0_0 ( pluto_rx_ctx = self.pluto_rx_ctx )
+            self.pluto_rx_ctx , self.pluto_rx_buf = sdr.init_pluto_v0_0_0 ( sn = self.sn , gain_control_mode_chan0 = self.gain_control_mode_chan0 , rx_gain_chan0_int = self.rx_gain_chan0_int )
+            self.samples = RxSamples_v0_0_0 ( pluto_rx_buf = self.pluto_rx_buf )
         else :
             self.samples = RxSamples_v0_0_0 ()
 

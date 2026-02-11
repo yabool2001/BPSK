@@ -53,7 +53,7 @@ plt = True
 wrt = False
 
 pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_RX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
-print ( f"\n{ pluto= }" )
+sdr.print_pluto_settings ( pluto.pluto_rx_ctx )
 pluto.rx_buf.refill ()
 raw_samples = pluto.rx_buf.read ()
 print ( raw_samples[:10] )
