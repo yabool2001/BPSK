@@ -1,3 +1,4 @@
+from pprint import pprint
 import adi
 import iio
 import numpy as np
@@ -112,11 +113,12 @@ def print_pluto_settings ( pluto_ctx : iio.Context ) :
 
     # 2. Znalezienie urządzenia PHY (tam siedzi konfiguracja RF)
     phy = pluto_ctx.find_device ( "ad9361-phy" )
-    
+    '''
     print(f"\n=== KONFIGURACJA SPRZĘTOWA: {phy.name} ===")
     
     # A. Atrybuty globalne urządzenia (np. tryb ENSM, kalibracje)
     print("\n[Ustawienia Globalne]")
+    
     for attr in phy.attrs:
         try:
             value = phy.attrs[attr].value
@@ -137,6 +139,16 @@ def print_pluto_settings ( pluto_ctx : iio.Context ) :
             except OSError:
                 val = "N/A (OSError)"
             print(f"    {attr}: {val}")
+'''
+    print (f"{phy.channels[0].id} {phy.channels[0].name} : {phy.channels[0].attrs['frequency'].value} Hz of {phy.channels[0].attrs['frequency_available'].value} Hz")
+    print (f"{phy.channels[4].id} {phy.channels[4].name} : {phy.channels[4].attrs['rf_bandwidth'].value} Hz of {phy.channels[4].attrs['rf_bandwidth_available'].value} Hz")
+    print (f"{phy.channels[4].attrs['rf_bandwidth'].value} Hz")
+    #print (f"{phy.channels[4].id} {phy.channels[4].name} : {phy.channels[4].attrs['rf_bandwidth'].value} Hz BW")
+    #print (f"{phy.channels[0].id} {phy.channels[0].name} : {phy.channels[0].attrs['hardwaregain'].value} dB")
+    
+    print (f"tx f_c: {phy.channels[0].attrs['frequency'].value} Hz")
+    print (f"rx f_c: {phy.channels[1].attrs['frequency'].value} Hz")
+
     return
 '''
     sdr = adi.Pluto ( uri )
