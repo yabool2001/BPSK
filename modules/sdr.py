@@ -118,7 +118,11 @@ def print_pluto_settings ( pluto_ctx : iio.Context ) :
     # A. Atrybuty globalne urządzenia (np. tryb ENSM, kalibracje)
     print("\n[Ustawienia Globalne]")
     for attr in phy.attrs:
-        print(f"  {attr}: {phy.attrs[attr].value}")
+        try:
+            value = phy.attrs[attr].value
+        except OSError:
+            value = "N/A (OSError)"
+        print(f"  {attr}: {value}")
 
     # B. Atrybuty kanałów (Częstotliwości, Gain, Bandwidth)
     print("\n[Ustawienia Kanałów]")
@@ -128,7 +132,10 @@ def print_pluto_settings ( pluto_ctx : iio.Context ) :
         print(f"  Kanał: {chan.id} ({direction})")
         
         for attr in chan.attrs:
-            val = chan.attrs[attr].value
+            try:
+                val = chan.attrs[attr].value
+            except OSError:
+                val = "N/A (OSError)"
             print(f"    {attr}: {val}")
     return
 '''
