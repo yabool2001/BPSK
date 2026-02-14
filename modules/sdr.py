@@ -113,7 +113,7 @@ def print_pluto_settings ( pluto_ctx : iio.Context ) :
 
     # 2. Znalezienie urządzenia PHY (tam siedzi konfiguracja RF)
     phy = pluto_ctx.find_device ( "ad9361-phy" )
-    '''
+    
     print(f"\n=== KONFIGURACJA SPRZĘTOWA: {phy.name} ===")
     
     # A. Atrybuty globalne urządzenia (np. tryb ENSM, kalibracje)
@@ -127,27 +127,28 @@ def print_pluto_settings ( pluto_ctx : iio.Context ) :
         print(f"  {attr}: {value}")
 
     # B. Atrybuty kanałów (Częstotliwości, Gain, Bandwidth)
-    print("\n[Ustawienia Kanałów]")
+    chan_set = "[Ustawienia Kanałów]\n\r"
     for chan in phy.channels:
         # Pomiń kanały, które nie są istotne (opcjonalnie)
         direction = "TX" if chan.output else "RX"
-        print(f"  Kanał: {chan.id} ({direction})")
+        chan_set += f"Kanał: {chan.id} ({direction})\n\r"
         
         for attr in chan.attrs:
             try:
                 val = chan.attrs[attr].value
             except OSError:
                 val = "N/A (OSError)"
-            print(f"    {attr}: {val}")
-'''
+            chan_set += f"    {attr}: {val}\n\r"
+
     print (f"{phy.channels[0].id} {phy.channels[0].name} : {phy.channels[0].attrs['frequency'].value} Hz of {phy.channels[0].attrs['frequency_available'].value} Hz")
     print (f"{phy.channels[4].id} {phy.channels[4].name} : {phy.channels[4].attrs['rf_bandwidth'].value} Hz of {phy.channels[4].attrs['rf_bandwidth_available'].value} Hz")
     print (f"{phy.channels[4].attrs['rf_bandwidth'].value} Hz")
     #print (f"{phy.channels[4].id} {phy.channels[4].name} : {phy.channels[4].attrs['rf_bandwidth'].value} Hz BW")
     #print (f"{phy.channels[0].id} {phy.channels[0].name} : {phy.channels[0].attrs['hardwaregain'].value} dB")
     
-    print (f"tx f_c: {phy.channels[0].attrs['frequency'].value} Hz")
-    print (f"rx f_c: {phy.channels[1].attrs['frequency'].value} Hz")
+    print (f"{phy.channels[3].id} {phy.channels[3].name} : {phy.channels[3].attrs['frequency'].value} Hz")
+    print (f"{phy.channels[4].attrs['frequency'].value} Hz")
+    print (f"{phy.channels[4].attrs['rf_bandwidth'].value} Hz of {phy.channels[4].attrs['rf_bandwidth_available'].value} Hz")
 
     return
 '''
