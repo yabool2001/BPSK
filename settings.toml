@@ -21,6 +21,15 @@ USB = "usb:"
 SN_RX = "10447318ac0f00091e002400454e18b77d"
 SN_TX = "1044739a470b000a090018007ecf7f5ea8"
 
+[ADALM-Pluto.channels]
+rx0tx0_channel_id = "voltage0"        # common name for rx0 and tx0 radio channel, channel output value is needed for distiction
+rx_channel_output = 0                 # voltage0 channel with output False means rx0 radio channel
+tx_channel_output = 1                 # voltage0 channel with output False means tx0 radio channel
+lo_rx0_channel_id = "altvoltage0"
+lo_rx0_channel_name = "RX_LO"
+lo_tx0_channel_id = "altvoltage1"
+lo_tx0_channel_name = "TX_LO"
+
 [bpsk]
 SPS = 4                             # samples per symbol
 
@@ -31,4 +40,4 @@ SPAN = 11                           # filter span in symbols
 [log]
 verbose_0 = 1
 verbose_1 = 0
-verbose_2 = 0
+verbose_2 = 1

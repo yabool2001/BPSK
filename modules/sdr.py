@@ -28,9 +28,21 @@ SAMPLES_BUFFER_SIZE = int ( toml_settings[ "ADALM-Pluto" ][ "SAMPLES_BUFFER_SIZE
 RX_OUTPUT_TYPE = toml_settings[ "ADALM-Pluto" ][ "RX_OUTPUT_TYPE" ]
 PLUTO_DAC_SCALE = 16384  # precomputed value of 2**14 for slight performance gain. The PlutoSDR expects samples to be between -2^14 and +2^14, not -1 and +1 like some SDRs
 
+f_c_tx0_readback = 0
+f_c_rx0_readback = 0
+f_s_tx0_readback = 0
+f_s_rx0_readback = 0
+bw_tx0_readback = 0
+bw_rx0_readback = 0
+tx0_gain_readback = 0
+rx0_gain_readback = 0
+rx0_gain_control_mode_readback = ""
+rx0_samples_buffer_size_readback = 0
+
 def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL , rx_gain_chan0_int : int = RX_GAIN ) -> tuple[ iio.Context , iio.Buffer ] :
     '''Zarówno dla odbiornika (ADC), jak i nadajnika (DAC), kanały nazywają się tak samo:
-        voltage0 (kanał I - In-phase)
+        voltage0 output = True (kanał TX - Transmit)
+        voltage0 output = False (kanał RX - Receive)
         voltage1 (kanał Q - Quadrature)
     Jedyną rzeczą, która je odróżnia w funkcji find_channel, jest flaga kierunku ( True dla wyjścia/TX , False dla wejścia/RX ).'''
 
@@ -38,19 +50,19 @@ def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_contro
     if uri is None:
         raise ValueError ( f"Error! ADALM-Pluto SN: {sn} is not connected. Check USB connection or IP settings.")
     ctx = iio.Context ( uri )
-    rx_dev = ctx.find_device ( "cf-ad9361-lpc" )   # To jest "rura RX" (strumieniowanie)
-    tx_dev = ctx.find_device ( "cf-ad9361-dds-core-lpc" ) # To jest "rura TX"
-    phy = ctx.find_device ( "ad9361-phy" )      # # To jest "mózg" (ustawienia RF)
+    rx_dev = ctx.find_device ( "cf-ad9361-lpc" )            # To jest "rura RX" (strumieniowanie)
+    tx_dev = ctx.find_device ( "cf-ad9361-dds-core-lpc" )   # To jest "rura TX"
+    phy = ctx.find_device ( "ad9361-phy" )                  # To jest "mózg" (ustawienia RF)
     
-    # Ustawienie Częstotliwości (LO). W AD9361: altvoltage0 to RX LO, altvoltage1 to TX LO (kanały wyjściowe w PHY)
-    rx_lo_chan = phy.find_channel ( "altvoltage0" , True )
-    tx_lo_chan = phy.find_channel ( "altvoltage1" , True )
-    rx_lo_chan.attrs[ "frequency" ].value = str ( int ( F_C ) )
-    tx_lo_chan.attrs[ "frequency" ].value = str ( int ( F_C ) )
+    # Ustawienie kanałów ohy
+    f_c_rx0_readback = set_f_c_rx0 ( phy , F_C )
+    f_c_tx0_readback = set_f_c_tx0 ( phy , F_C )
+    f_s_rx0_readback = set_f_s_rx0 ( phy , F_S )
+    f_s_tx0_readback = set_f_s_tx0 ( phy , F_S )
     
     # Ustawienie Sample Rate i Bandwidth. Ustawiamy to na kanale fizycznym (zazwyczaj voltage0 w PHY steruje całym chipem)
-    rx_phy_chan = phy.find_channel ( "voltage0" , False ) # False = Input (RX)
-    tx_phy_chan = phy.find_channel ( "voltage0" , True )  # True = Output (TX)
+    rx_phy_chan = phy.find_channel ( "voltage0" , is_output = False ) # False = Input (RX)
+    tx_phy_chan = phy.find_channel ( "voltage0" , is_output = True )  # True = Output (TX)
     
     # Sample rate (wpływa na oba tory zazwyczaj, ale ustawiamy na RX)
     rx_phy_chan.attrs[ "sampling_frequency" ].value = str ( int ( F_S ) )
@@ -106,6 +118,34 @@ def get_uri ( serial : str , type_preference : str = "usb" ) -> str | None :
         return usb_match
 
     return None
+
+def set_f_c_rx0 ( phy : iio.Device , F_C : int ) -> int :
+    """ Ustawia częstotliwość LO dla RX0 i zwraca odczytaną wartość po ustawieniu. """
+    lo_rx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["lo_rx0_channel_name"] , is_output = True ) # UWAGA: LO jest kanałem wyjściowym w PHY dlatego is_output = True, mimo że jest używany do odbioru (RX) - to jest specyfika AD9361
+    lo_rx0_channel.attrs[ "frequency" ].value = str ( int ( F_C ) )
+    if toml_settings["log"]["verbose_2"] : print ( f"{lo_rx0_channel.id=} {lo_rx0_channel.name=} {int ( lo_rx0_channel.attrs[ 'frequency' ].value )=:,} Hz" )
+    return int ( lo_rx0_channel.attrs[ "frequency" ].value )
+
+def set_f_c_tx0 ( phy : iio.Device , F_C : int ) -> int :
+    """ Ustawia częstotliwość LO dla TX0 i zwraca odczytaną wartość po ustawieniu. """
+    lo_tx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["lo_tx0_channel_name"] , is_output = True )
+    lo_tx0_channel.attrs[ "frequency" ].value = str ( int ( F_C ) )
+    if toml_settings["log"]["verbose_2"] : print ( f"{lo_tx0_channel.id=} {lo_tx0_channel.name=} {int ( lo_tx0_channel.attrs[ 'frequency' ].value )=:,} Hz" )
+    return int ( lo_tx0_channel.attrs[ "frequency" ].value )
+
+def set_f_s_rx0 ( phy : iio.Device , F_C : int ) -> int :
+    """ Ustawia częstotliwość samplowania dla RX0 i zwraca odczytaną wartość po ustawieniu. """
+    rx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = False )
+    rx0_channel.attrs[ "sampling_frequency" ].value = str ( int ( F_C ) )
+    if toml_settings["log"]["verbose_2"] : print ( f"{rx0_channel.id=} {rx0_channel.output=} {int ( rx0_channel.attrs[ 'sampling_frequency' ].value )=:,} Hz" )
+    return int ( rx0_channel.attrs[ "sampling_frequency" ].value )
+
+def set_f_s_tx0 ( phy : iio.Device , F_C : int ) -> int :
+    """ Ustawia częstotliwość samplowania dla TX0 i zwraca odczytaną wartość po ustawieniu. """
+    tx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = True )
+    tx0_channel.attrs[ "sampling_frequency" ].value = str ( int ( F_C ) )
+    if toml_settings["log"]["verbose_2"] : print ( f"{tx0_channel.id=} {tx0_channel.output=} {int ( tx0_channel.attrs[ 'sampling_frequency' ].value )=:,} Hz" )
+    return int ( tx0_channel.attrs[ "sampling_frequency" ].value )
 
 def print_pluto_settings ( pluto_ctx : iio.Context ) :
     """ Wyświetlanie konfiguracji obiektu 'iio.Context'. """
