@@ -59,6 +59,9 @@ def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_contro
     f_c_tx0_readback = set_f_c_tx0 ( phy , F_C )
     f_s_rx0_readback = set_f_s_rx0 ( phy , F_S )
     f_s_tx0_readback = set_f_s_tx0 ( phy , F_S )
+    bw_tx0_readback = set_bw_rx0 ( phy , BW )
+    bw_rx0_readback = set_bw_tx0 ( phy , BW )
+    tx0_gain_readback = set_gain_tx0 ( phy , tx_gain_float )
     
     # Ustawienie Sample Rate i Bandwidth. Ustawiamy to na kanale fizycznym (zazwyczaj voltage0 w PHY steruje całym chipem)
     rx_phy_chan = phy.find_channel ( "voltage0" , is_output = False ) # False = Input (RX)
@@ -146,6 +149,27 @@ def set_f_s_tx0 ( phy : iio.Device , F_C : int ) -> int :
     tx0_channel.attrs[ "sampling_frequency" ].value = str ( int ( F_C ) )
     if toml_settings["log"]["verbose_2"] : print ( f"{tx0_channel.id=} {tx0_channel.output=} {int ( tx0_channel.attrs[ 'sampling_frequency' ].value )=:,} Hz" )
     return int ( tx0_channel.attrs[ "sampling_frequency" ].value )
+
+def set_bw_rx0 ( phy : iio.Device , BW : int ) -> int :
+    """ Ustawia szerokość pasma dla RX0 i zwraca odczytaną wartość po ustawieniu. """
+    rx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = False )
+    rx0_channel.attrs[ "rf_bandwidth" ].value = str ( int ( BW ) )
+    if toml_settings["log"]["verbose_2"] : print ( f"{rx0_channel.id=} {rx0_channel.output=} {int ( rx0_channel.attrs[ 'rf_bandwidth' ].value )=:,} Hz" )
+    return int ( rx0_channel.attrs[ "rf_bandwidth" ].value )
+
+def set_bw_tx0 ( phy : iio.Device , BW : int ) -> int :
+    """ Ustawia szerokość pasma dla TX0 i zwraca odczytaną wartość po ustawieniu. """
+    tx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = True )
+    tx0_channel.attrs[ "rf_bandwidth" ].value = str ( int ( BW ) )
+    if toml_settings["log"]["verbose_2"] : print ( f"{tx0_channel.id=} {tx0_channel.output=} {int ( tx0_channel.attrs[ 'rf_bandwidth' ].value )=:,} Hz" )
+    return int ( tx0_channel.attrs[ "rf_bandwidth" ].value )
+
+def set_gain_tx0 ( phy : iio.Device , tx_gain_float : float ) -> int :
+    """ Ustawia gain dla TX0 i zwraca odczytaną wartość po ustawieniu. """
+    tx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = True )
+    tx0_channel.attrs[ "hardwaregain" ].value = str ( int ( tx_gain_float ) )
+    if toml_settings["log"]["verbose_2"] : print ( f"{tx0_channel.id=} {tx0_channel.output=} {int ( tx0_channel.attrs[ 'hardwaregain' ].value )=:,} dB" )
+    return int ( tx0_channel.attrs[ "hardwaregain" ].value )
 
 def print_pluto_settings ( pluto_ctx : iio.Context ) :
     """ Wyświetlanie konfiguracji obiektu 'iio.Context'. """
