@@ -62,6 +62,8 @@ def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_contro
     bw_tx0_readback = set_bw_rx0 ( phy , BW )
     bw_rx0_readback = set_bw_tx0 ( phy , BW )
     tx0_gain_readback = set_gain_tx0 ( phy , tx_gain_float )
+    rx0_gain_control_mode_readback = set_gain_control_mode_rx0 ( phy , gain_control_mode_chan0 )
+    rx0_gain_readback = set_gain_rx0 ( phy , rx_gain_chan0_int )
     
     # Ustawienie Sample Rate i Bandwidth. Ustawiamy to na kanale fizycznym (zazwyczaj voltage0 w PHY steruje całym chipem)
     rx_phy_chan = phy.find_channel ( "voltage0" , is_output = False ) # False = Input (RX)
@@ -164,12 +166,26 @@ def set_bw_tx0 ( phy : iio.Device , BW : int ) -> int :
     if toml_settings["log"]["verbose_2"] : print ( f"{tx0_channel.id=} {tx0_channel.output=} {int ( tx0_channel.attrs[ 'rf_bandwidth' ].value )=:,} Hz" )
     return int ( tx0_channel.attrs[ "rf_bandwidth" ].value )
 
-def set_gain_tx0 ( phy : iio.Device , tx_gain_float : float ) -> int :
+def set_gain_tx0 ( phy : iio.Device , tx_gain_float : float ) -> float :
     """ Ustawia gain dla TX0 i zwraca odczytaną wartość po ustawieniu. """
     tx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = True )
     tx0_channel.attrs[ "hardwaregain" ].value = str ( int ( tx_gain_float ) )
-    if toml_settings["log"]["verbose_2"] : print ( f"{tx0_channel.id=} {tx0_channel.output=} {int ( tx0_channel.attrs[ 'hardwaregain' ].value )=:,} dB" )
-    return int ( tx0_channel.attrs[ "hardwaregain" ].value )
+    if toml_settings["log"]["verbose_2"] : print ( f"{tx0_channel.id=} {tx0_channel.output=} {float ( tx0_channel.attrs[ 'hardwaregain' ].value.split(' ')[0] )=:,} dB" )
+    return float ( tx0_channel.attrs[ "hardwaregain" ].value.split(' ')[0] )
+
+def set_gain_control_mode_rx0 ( phy : iio.Device , rx0_gain_control_mode : str ) -> str :
+    """ Ustawia tryb kontroli gainu dla RX0 i zwraca odczytaną wartość po ustawieniu. """
+    rx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = False )
+    rx0_channel.attrs[ "gain_control_mode" ].value = rx0_gain_control_mode
+    if toml_settings["log"]["verbose_2"] : print ( f"{rx0_channel.id=} {rx0_channel.output=} {rx0_channel.attrs[ 'gain_control_mode' ].value=}" )
+    return rx0_channel.attrs[ "gain_control_mode" ].value
+
+def set_gain_rx0 ( phy : iio.Device , rx_gain_chan0_int : int ) -> float :
+    """ Ustawia gain dla RX0 i zwraca odczytaną wartość po ustawieniu. """
+    rx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = False )
+    rx0_channel.attrs[ "hardwaregain" ].value = str ( float ( rx_gain_chan0_int ) )
+    if toml_settings["log"]["verbose_2"] : print ( f"{rx0_channel.id=} {rx0_channel.output=} {float ( rx0_channel.attrs[ 'hardwaregain' ].value.split(' ')[0] )=:,} dB" )
+    return float ( rx0_channel.attrs[ "hardwaregain" ].value.split(' ')[0] )
 
 def print_pluto_settings ( pluto_ctx : iio.Context ) :
     """ Wyświetlanie konfiguracji obiektu 'iio.Context'. """
