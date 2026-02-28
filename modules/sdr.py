@@ -73,12 +73,7 @@ def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_contro
     rx_phy_chan.attrs[ "sampling_frequency" ].value = str ( int ( F_S ) )
     # Bandwidth
     rx_phy_chan.attrs[ "rf_bandwidth" ].value = str ( int ( BW ) )
-    
-    # RX Gain
-    rx_phy_chan.attrs[ "gain_control_mode" ].value = gain_control_mode_chan0 
-    # Jeśli manual, to ustawiamy wartość (zawsze jako string):
-    if gain_control_mode_chan0 == "manual":
-        rx_phy_chan.attrs[ "hardwaregain" ].value = str ( int ( rx_gain_chan0_int ) )
+
 
     # TX Gain (Tłumienie) - w AD9361 to zazwyczaj ujemne dB lub tłumienie
     tx_phy_chan.attrs[ "hardwaregain" ].value = str ( int ( tx_gain_float ) )
@@ -183,7 +178,11 @@ def set_gain_control_mode_rx0 ( phy : iio.Device , rx0_gain_control_mode : str )
 def set_gain_rx0 ( phy : iio.Device , rx_gain_chan0_int : int ) -> float :
     """ Ustawia gain dla RX0 i zwraca odczytaną wartość po ustawieniu. """
     rx0_channel = phy.find_channel ( toml_settings["ADALM-Pluto"]["channels"]["rx0tx0_channel_id"] , is_output = False )
-    rx0_channel.attrs[ "hardwaregain" ].value = str ( float ( rx_gain_chan0_int ) )
+    try:
+        rx0_channel.attrs[ "hardwaregain" ].value = str ( float ( rx_gain_chan0_int ) )
+    except OSError as e:
+        print(f"Warning: Could not set hardwaregain: {e}")
+        
     if toml_settings["log"]["verbose_2"] : print ( f"{rx0_channel.id=} {rx0_channel.output=} {float ( rx0_channel.attrs[ 'hardwaregain' ].value.split(' ')[0] )=:,} dB" )
     return float ( rx0_channel.attrs[ "hardwaregain" ].value.split(' ')[0] )
 
@@ -226,9 +225,9 @@ def print_pluto_settings ( pluto_ctx : iio.Context ) :
     #print (f"{phy.channels[4].id} {phy.channels[4].name} : {phy.channels[4].attrs['rf_bandwidth'].value} Hz BW")
     #print (f"{phy.channels[0].id} {phy.channels[0].name} : {phy.channels[0].attrs['hardwaregain'].value} dB")
     
-    print (f"{phy.channels[3].id} {phy.channels[3].name} : {phy.channels[3].attrs['frequency'].value} Hz")
-    print (f"{phy.channels[4].attrs['frequency'].value} Hz")
-    print (f"{phy.channels[4].attrs['rf_bandwidth'].value} Hz of {phy.channels[4].attrs['rf_bandwidth_available'].value} Hz")
+    #print (f"{phy.channels[3].id} {phy.channels[3].name} : {phy.channels[3].attrs['frequency'].value} Hz")
+    #print (f"{phy.channels[4].attrs['frequency'].value} Hz")
+    #print (f"{phy.channels[4].attrs['rf_bandwidth'].value} Hz of {phy.channels[4].attrs['rf_bandwidth_available'].value} Hz")
 
     return
 '''
