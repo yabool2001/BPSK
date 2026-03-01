@@ -37,11 +37,10 @@ def apply_tx_rrc_filter_v0_0_0 ( symbols: NDArray[ np.complex128 ] , upsample: b
 
 def apply_rrc_rx_filter_v0_0_0 ( rx_samples: NDArray[ np.int16 ] ) -> NDArray[ np.int16 ] :
     """ Filtruje odebrane próbki z SDR filtrem RRC.
-    Symulacja filtracji stałoprzecinkowej (DSP/FPGA).
-    Parametry:
-        rx_samples: Odebrane próbki raw int16 (interleaved).
-    Zwraca:
-        Przefiltrowane próbki jako interleaved int16 (I, Q, I, Q...). """
+    Parametry: rx_samples: Odebrane próbki raw int16 (interleaved).
+    Funkcja ma być wydajna w celu jej docelowego zaimplementowania na fizycznym modemie w FPGA lub DSP.
+    Nie powinna operować na float tylko na int16 bez utraty precyzji i jakości filtrowania, czyli działać state of the art modem.
+    Zwraca: Przefiltrowane próbki jako interleaved int16 (I, Q, I, Q...). """
 
     # Generuj współczynniki filtra RRC (float)
     rrc_taps_float = rrc_filter_v0_0_0 ( beta = BETA , sps  = SPS , span = SPAN )

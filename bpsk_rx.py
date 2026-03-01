@@ -10,6 +10,7 @@ Invalid rx_output_type: invalid. Must be raw or SI
 
 import numpy as np
 import os , threading , tomllib , sys
+import torch
 import time as t
 
 from modules import file, packet , sdr
@@ -23,6 +24,8 @@ Path ( "np.samples" ).mkdir ( parents = True , exist_ok = True )
 # Wczytaj plik TOML z konfiguracją
 with open ( "settings.toml" , "rb" ) as settings_file :
     toml_settings = tomllib.load ( settings_file )
+
+torch.cuda.is_available ()
 
 if len ( sys.argv ) > 1 :
     gain_control_mode_chan0 = sys.argv[ 1 ]
@@ -71,7 +74,7 @@ while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_by
     #print ( f"{ script_filename } {rx_pluto_samples.samples.dtype=}, {rx_pluto=}" )
     #print ( f"{ script_filename } {rx_pluto_samples.samples[:10]=}" )
 
-    rx_pluto_samples.detect_frames ( deep = False )
+    #rx_pluto_samples.detect_frames ( deep = False )
     break
     if rx_pluto_samples.frames.has_leftovers :
         previous_samples_leftovers = rx_pluto_samples.samples_leftovers
