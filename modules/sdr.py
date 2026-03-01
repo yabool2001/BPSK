@@ -65,19 +65,6 @@ def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_contro
     rx0_gain_control_mode_readback = set_gain_control_mode_rx0 ( phy , gain_control_mode_chan0 )
     rx0_gain_readback = set_gain_rx0 ( phy , rx_gain_chan0_int )
     
-    # Ustawienie Sample Rate i Bandwidth. Ustawiamy to na kanale fizycznym (zazwyczaj voltage0 w PHY steruje całym chipem)
-    rx_phy_chan = phy.find_channel ( "voltage0" , is_output = False ) # False = Input (RX)
-    tx_phy_chan = phy.find_channel ( "voltage0" , is_output = True )  # True = Output (TX)
-    
-    # Sample rate (wpływa na oba tory zazwyczaj, ale ustawiamy na RX)
-    rx_phy_chan.attrs[ "sampling_frequency" ].value = str ( int ( F_S ) )
-    # Bandwidth
-    rx_phy_chan.attrs[ "rf_bandwidth" ].value = str ( int ( BW ) )
-
-
-    # TX Gain (Tłumienie) - w AD9361 to zazwyczaj ujemne dB lub tłumienie
-    tx_phy_chan.attrs[ "hardwaregain" ].value = str ( int ( tx_gain_float ) )
-
     # Konfiguracja Bufora i Strumieniowania (To odpowiada sdr.rx_buffer_size)
     # Musimy włączyć kanały I oraz Q w urządzeniu strumieniującym (nie PHY!)
     rx_v0 = rx_dev.find_channel ( "voltage0" , False )

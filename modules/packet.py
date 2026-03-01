@@ -431,20 +431,21 @@ class RxSamples_v0_0_0 :
     pluto_rx_buf : iio.Buffer | None = None
 
     # Pola uzupełnianie w __post_init__
-    samples : NDArray[ np.complex128 ] = field ( init = False )
-    samples_filtered : NDArray[ np.complex128 ] = field ( init = False )
+    samples : NDArray[ np.int16 ] = field ( init = False ) # iio.Buffer returns data as int16 (interleaved I/Q)
+    samples_filtered : NDArray[ np.int16 ] = field ( init = False )
     has_amp_greater_than_ths : bool = False
     ths : float = 1000.0
     sync_sequence_peaks : NDArray[ np.uint32 ] = field ( init = False )
     frames : RxFrames_v0_0_0 = field ( init = False )
-    samples_leftovers : NDArray[ np.complex128 ] | None = field ( default = None )
+    samples_leftovers : NDArray[ np.int16 ] | None = field ( default = None )
 
     def __post_init__ ( self ) -> None :
-            self.samples = np.array ( [] , dtype = np.complex128 )
-            self.samples_filtered = np.array ( [] , dtype = np.complex128 )
+            self.samples = np.array ( [] , dtype = np.int16 )
+            self.samples_filtered = np.array ( [] , dtype = np.int16 )
 
-    def rx ( self , previous_samples_leftovers : NDArray[ np.complex128 ] | None = None , samples_filename : str | None = None ) -> None :
+    def rx ( self , previous_samples_leftovers : NDArray[ np.int16 ] | None = None , samples_filename : str | None = None ) -> None :
         if self.pluto_rx_buf is not None :
+            self.pluto_rx_buf.refill ()
             raw_bytes = self.pluto_rx_buf.read ()
             samples = np.frombuffer ( raw_bytes , dtype = np.int16 )
             if previous_samples_leftovers is None :

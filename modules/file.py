@@ -19,11 +19,20 @@ def open_complex_samples_from_npf ( filename : str ) -> NDArray[ np.complex128 ]
         raise
     return samples
 
-def save_complex_samples_2_npf ( filename : str , samples : NDArray[ np.complex128 ] ) -> None :
+def save_complex_samples_2_npf ( filename : str , samples : NDArray[ np.complex128 ] | NDArray[ np.int16 ] ) -> None :
     """ Save complex samples to a .npf file with type validation. """
     
-    if not isinstance ( samples , np.ndarray ) or samples.dtype != np.complex128 :
-        raise TypeError ( "Samples must be NDArray[np.complex128]" )
+    if not isinstance ( samples , np.ndarray ) :
+        raise TypeError ( "Samples must be NDArray" )
+    
+    if samples.dtype == np.int16 :
+        # Konwersja int16 -> complex128 dla spójności zapisu (chyba że zależy nam na raw)
+        # Tutaj zakładam, że chcemy zapisać jako complex128, aby pliki były wymienne
+        samples = samples.astype ( np.float32 ).view ( np.complex64 ).astype ( np.complex128 )
+    
+    if samples.dtype != np.complex128 :
+        raise TypeError ( f"Samples must be NDArray[np.complex128] or NDArray[np.int16]. Got {samples.dtype}" )
+
     target_path = Path ( filename )
     try :
         np.save ( target_path , samples )
@@ -62,12 +71,24 @@ def open_and_write_samples_2_csv ( name , samples ) :
         csv_writer.writerow ( [ sample.real , sample.imag ] )
     return csv_file , csv_writer
 
-def save_complex_samples_2_csv ( filename , samples : NDArray[ np.complex128 ] ) :
+def save_complex_samples_2_csv ( filename , samples : NDArray[ np.complex128 ] | NDArray[ np.int16 ] ) :
+    if samples.dtype == np.int16 :
+        real = samples[ 0 : : 2 ]
+        imag = samples[ 1 : : 2 ]
+        length = min ( len ( real ) , len ( imag ) ) # na wypadek nieparzystej liczby
+        real = real [ : length ]
+        imag = imag [ : length ]
+    elif np.iscomplexobj ( samples ) :
+        real = samples.real
+        imag = samples.imag
+    else :
+        raise TypeError ( "Unsupported sample type. Expected complex128 or int16 interleaved." )
+
     with open ( filename , mode = 'w' , newline = '') as file :
         writer = csv.writer ( file )
         writer.writerow ( [ 'real' , 'imag' ] )  # nagłówki kolumn
-        for sample in samples :
-            writer.writerow ( [ sample.real , sample.imag ] )
+        for r, i in zip ( real , imag ) :
+            writer.writerow ( [ r , i ] )
 def write_samples_2_csv ( filename , samples : NDArray[ np.complex128 ] ) :
     with open ( filename , mode = 'w' , newline = '') as file :
         writer = csv.writer ( file )

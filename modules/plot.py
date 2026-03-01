@@ -52,7 +52,11 @@ def complex_waveform_v0_0_0 ( signal_complex : NDArray[ np.complex128 ] , title 
     - marker_peaks: Optional[np.ndarray] — indeksy próbek, gdzie zaznaczyć trójkąty (rozmiar taki sam jak marker_squares). """
     
     if not np.iscomplexobj ( signal_complex ) :
-        raise ValueError ( "Wejściowy sygnał musi być zespolony NDArray[np.complex128]" )
+        # Jeśli sygnał nie jest zespolony, sprawdź czy to nie surowe dane int16 z Pluto (przeplot I/Q) i dokonaj konwersji int16 -> complex128
+        if signal_complex.dtype == np.int16 :
+            signal_complex = signal_complex.astype ( np.float32 ).view ( np.complex64 ).astype ( np.complex128 )
+        else :
+            raise ValueError ( "Wejściowy sygnał musi być zespolony NDArray[np.complex128] lub surowy NDArray[np.int16] (I/Q interleaved)" )
 
     df = pd.DataFrame ( {"index" : np.arange ( len ( signal_complex ) ) , "real" : signal_complex.real , "imag" : signal_complex.imag} )
 

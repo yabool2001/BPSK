@@ -45,7 +45,7 @@ with open ( wrt_filename_log , "w" ) as wrt_file :
     wrt_file.write ( packet.log_packet )
 
 received_bytes : NDArray[ np.uint8 ] = np.array ( [] , dtype = np.uint8 )
-previous_samples_leftovers : NDArray[ np.complex128 ] = np.array ( [] , dtype = np.complex128 )
+previous_samples_leftovers : NDArray[ np.int16 ] = np.array ( [] , dtype = np.int16 )
 
 real = True
 debug = False
@@ -67,13 +67,12 @@ while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_by
     if debug :
         if rx_pluto_samples.has_amp_greater_than_ths : rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } { rx_pluto_samples.has_amp_greater_than_ths= }" )
     
-    #rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } {rx_pluto_samples.samples.size=}" )
+    rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } {rx_pluto_samples.samples.size=}" )
     #print ( f"{ script_filename } {rx_pluto_samples.samples.dtype=}, {rx_pluto=}" )
     #print ( f"{ script_filename } {rx_pluto_samples.samples[:10]=}" )
-    break
 
     rx_pluto_samples.detect_frames ( deep = False )
-    
+    break
     if rx_pluto_samples.frames.has_leftovers :
         previous_samples_leftovers = rx_pluto_samples.samples_leftovers
 

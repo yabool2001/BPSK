@@ -35,19 +35,41 @@ def apply_tx_rrc_filter_v0_0_0 ( symbols: NDArray[ np.complex128 ] , upsample: b
     
     return ( filtered + 0j ) .astype ( np.complex128 )
 
-def apply_rrc_rx_filter_v0_0_0 ( rx_samples: NDArray[ np.complex128 ] ) -> NDArray[ np.complex128 ] :
+def apply_rrc_rx_filter_v0_0_0 ( rx_samples: NDArray[ np.int16 ] ) -> NDArray[ np.int16 ] :
     """ Filtruje odebrane próbki z SDR filtrem RRC.
+    Symulacja filtracji stałoprzecinkowej (DSP/FPGA).
     Parametry:
-        rx_samples: Odebrane próbki (complex128) z SDR.
+        rx_samples: Odebrane próbki raw int16 (interleaved).
     Zwraca:
-        Przefiltrowane próbki (complex128). """
+        Przefiltrowane próbki jako interleaved int16 (I, Q, I, Q...). """
 
-    # Generuj współczynniki filtra RRC
-    rrc_taps = rrc_filter_v0_0_0 ( beta = BETA , sps  = SPS , span = SPAN )
-    # Filtracja (uwaga: filtr musi być znormalizowany!)
-    filtered = lfilter ( rrc_taps , 1.0 , rx_samples )
+    # Generuj współczynniki filtra RRC (float)
+    rrc_taps_float = rrc_filter_v0_0_0 ( beta = BETA , sps  = SPS , span = SPAN )
     
-    return filtered.astype ( np.complex128 )  # Gwarancja complex128
+    # Konwersja współczynników na stałoprzecinkowe (Q15 dla int16)
+    # W praktyce DSP często mnoży się przez 2^15 (32768) dla Q15.
+    scaling_factor = 32768.0 
+    rrc_taps_fixed = np.round ( rrc_taps_float * scaling_factor ).astype ( np.int64 ) 
+    
+    # Rozdzielenie I/Q
+    rx_i = rx_samples[ 0 : : 2 ].astype ( np.int64 )
+    rx_q = rx_samples[ 1 : : 2 ].astype ( np.int64 )
+
+    # Splot stałoprzecinkowy (symulowany bit-perfect na CPU)
+    # Używamy np.convolve na int64, aby uniknąć przepełnienia akumulatora.
+    filtered_real_accum = np.convolve ( rx_i , rrc_taps_fixed , mode = 'same' )
+    filtered_imag_accum = np.convolve ( rx_q , rrc_taps_fixed , mode = 'same' )
+    
+    # Skalowanie w dół (bit shift) po filtracji
+    filtered_real = ( ( filtered_real_accum + 16384 ) // 32768 ).astype ( np.int16 )
+    filtered_imag = ( ( filtered_imag_accum + 16384 ) // 32768 ).astype ( np.int16 )
+    
+    # Ponowne splecenie (interleaving) do formatu int16
+    result = np.empty ( filtered_real.size + filtered_imag.size , dtype = np.int16 )
+    result[ 0 : : 2 ] = filtered_real
+    result[ 1 : : 2 ] = filtered_imag
+    
+    return result
 
 @njit ( cache = True , fastmath = True )  # Kompilacja Just-In-Time z optymalizacjami
 def rrc_filter_v0_0_0 ( beta , sps , span ) :
