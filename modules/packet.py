@@ -525,8 +525,8 @@ class RxSamples_v0_0_0 :
 class RxPluto_v0_0_0 :
 
     sn : str | None = None
-    gain_control_mode_chan0 : str = field ( default = sdr.GAIN_CONTROL )
-    rx_gain_chan0_int : int = field ( default = sdr.RX_GAIN )
+    gain_control_mode_chan0 : str = field ( default = sdr.GAIN_CONTROL_MODE_CH0 )
+    rx_gain_chan0_int : int = field ( default = sdr.RX_GAIN_CH0 )
     
     # Pola uzupełnianie w __post_init__
     pluto_rx_ctx : iio.Context | None = None
@@ -538,7 +538,9 @@ class RxPluto_v0_0_0 :
 
     def init_pluto_rx ( self ) -> None :
         if self.sn is not None :
-            self.pluto_rx_ctx , self.pluto_rx_buf = sdr.init_pluto_v0_0_0 ( sn = self.sn , gain_control_mode_chan0 = self.gain_control_mode_chan0 , rx_gain_chan0_int = self.rx_gain_chan0_int )
+            self.pluto_rx_ctx , self.pluto_rx_buf = sdr.init_pluto_v0_0_0 ( sn = self.sn ,
+                                                                           gain_control_mode_chan0 = self.gain_control_mode_chan0 ,
+                                                                           rx_gain_chan0_int = self.rx_gain_chan0_int )
             self.samples = RxSamples_v0_0_0 ( pluto_rx_buf = self.pluto_rx_buf )
         else :
             self.samples = RxSamples_v0_0_0 ()

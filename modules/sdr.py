@@ -22,8 +22,8 @@ BW  = int ( toml_settings["ADALM-Pluto"][ "BW" ] )     # BandWidth [Hz]
 #F_S = 521100     # Sampling frequency [Hz] >= 521e3 && <
 F_S = int ( BW * 3 if ( BW * 3 ) >= 521100 and ( BW * 3 ) <= 61440000 else 521100 ) # Sampling frequency [Hz]
 TX_GAIN = float ( toml_settings[ "ADALM-Pluto" ][ "TX_GAIN" ] )
-RX_GAIN = int ( toml_settings[ "ADALM-Pluto" ][ "RX_GAIN" ] )
-GAIN_CONTROL = toml_settings[ "ADALM-Pluto" ][ "GAIN_CONTROL" ]
+RX_GAIN_CH0 = int ( toml_settings[ "ADALM-Pluto" ][ "RX_GAIN" ] )
+GAIN_CONTROL_MODE_CH0 = toml_settings[ "ADALM-Pluto" ][ "GAIN_CONTROL" ]
 SAMPLES_BUFFER_SIZE = int ( toml_settings[ "ADALM-Pluto" ][ "SAMPLES_BUFFER_SIZE" ] )
 RX_OUTPUT_TYPE = toml_settings[ "ADALM-Pluto" ][ "RX_OUTPUT_TYPE" ]
 PLUTO_DAC_SCALE = 16384  # precomputed value of 2**14 for slight performance gain. The PlutoSDR expects samples to be between -2^14 and +2^14, not -1 and +1 like some SDRs
@@ -39,7 +39,7 @@ rx0_gain_readback = 0
 rx0_gain_control_mode_readback = ""
 rx0_samples_buffer_size_readback = 0
 
-def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL , rx_gain_chan0_int : int = RX_GAIN ) -> tuple[ iio.Context , iio.Buffer ] :
+def init_pluto_v0_0_0 ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL_MODE_CH0 , rx_gain_chan0_int : int = RX_GAIN_CH0 ) -> tuple[ iio.Context , iio.Buffer ] :
     '''Zarówno dla odbiornika (ADC), jak i nadajnika (DAC), kanały nazywają się tak samo:
         voltage0 output = True (kanał TX - Transmit)
         voltage0 output = False (kanał RX - Receive)
