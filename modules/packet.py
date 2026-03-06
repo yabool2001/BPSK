@@ -431,17 +431,17 @@ class RxSamples_v0_0_0 :
     pluto_rx_buf : iio.Buffer | None = None
 
     # Pola uzupełnianie w __post_init__
-    samples : NDArray[ np.int16 ] = field ( init = False ) # iio.Buffer returns data as int16 (interleaved I/Q)
-    samples_filtered : NDArray[ np.int16 ] = field ( init = False )
+    raw : NDArray[ np.int16 ] = field ( init = False ) # iio.Buffer returns data as int16 (interleaved I/Q)
+    filtered : NDArray[ np.int16 ] = field ( init = False )
     has_amp_greater_than_ths : bool = False
     ths : float = 1000.0
     sync_sequence_peaks : NDArray[ np.uint32 ] = field ( init = False )
     frames : RxFrames_v0_0_0 = field ( init = False )
-    samples_leftovers : NDArray[ np.int16 ] | None = field ( default = None )
+    leftovers : NDArray[ np.int16 ] | None = field ( default = None )
 
     def __post_init__ ( self ) -> None :
-            self.samples = np.array ( [] , dtype = np.int16 )
-            self.samples_filtered = np.array ( [] , dtype = np.int16 )
+            self.raw = np.array ( [] , dtype = np.int16 )
+            self.filtered = np.array ( [] , dtype = np.int16 )
 
     def rx ( self , previous_samples_leftovers : NDArray[ np.int16 ] | None = None , samples_filename : str | None = None ) -> None :
         if self.pluto_rx_buf is not None :
@@ -449,77 +449,77 @@ class RxSamples_v0_0_0 :
             raw_bytes = self.pluto_rx_buf.read ()
             samples = np.frombuffer ( raw_bytes , dtype = np.int16 )
             if previous_samples_leftovers is None :
-                self.samples = samples
+                self.raw = samples
             else :
-                self.samples = np.concatenate ( [ previous_samples_leftovers , samples ] )
+                self.raw = np.concatenate ( [ previous_samples_leftovers , samples ] )
             self.sample_initial_assesment ()
         elif samples_filename is not None :
             if samples_filename.endswith('.npy'):
                 self.samples = file.open_complex_samples_from_npf ( samples_filename )
             elif samples_filename.endswith('.csv'):
-                self.samples = file.open_complex_samples_from_csv ( samples_filename )
+                self.raw = file.open_complex_samples_from_csv ( samples_filename )
             else:
                 raise ValueError(f"Error: unsupported file format for {samples_filename}! Supported formats: .npy, .csv")
             if previous_samples_leftovers is not None :
-                self.samples = np.concatenate ( [ previous_samples_leftovers , self.samples ] )
+                self.raw = np.concatenate ( [ previous_samples_leftovers , self.raw ] )
         else :
             raise ValueError ( "Either pluto_rx_ctx or samples_filename must be provided." )
 
     def filter_samples ( self ) -> None :
-        self.samples_filtered = filters.apply_rrc_rx_filter_v0_0_0 ( self.samples )
+        self.filtered = filters.apply_rrc_rx_filter_v0_0_0 ( self.raw )
 
     def detect_frames ( self , deep : bool = False ) -> None :
         self.filter_samples ()
-        self.frames = RxFrames_v0_0_0 ( samples_filtered = self.samples_filtered , deep = deep )
+        self.frames = RxFrames_v0_0_0 ( samples_filtered = self.filtered , deep = deep )
         if self.frames.has_leftovers :
             self.clip_samples_leftovers ()
 
     def sample_initial_assesment (self) -> None :
-        self.has_amp_greater_than_ths = np.any ( np.abs ( self.samples ) > self.ths )
+        self.has_amp_greater_than_ths = np.any ( np.abs ( self.raw ) > self.ths )
 
     def plot_complex_samples ( self , title = "" , marker : bool = False , peaks : NDArray[ np.uint32 ] = None ) -> None :
-        plot.complex_waveform_v0_0_0 ( self.samples , f"RxSamples {title} {self.samples.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.raw , f"RxSamples {title} {self.raw.size=}" , marker_squares = marker , marker_peaks = peaks )
 
     def plot_complex_samples_filtered ( self , title = "" , marker : bool = False , peaks : NDArray[ np.uint32 ] = None ) -> None :
-        plot.complex_waveform_v0_0_0 ( self.samples_filtered , f"RxSamples filtered {title} {self.samples_filtered.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.filtered , f"RxSamples filtered {title} {self.filtered.size=}" , marker_squares = marker , marker_peaks = peaks )
 
     def plot_complex_samples_corrected ( self , title = "" , marker : bool = False , peaks : NDArray[ np.uint32 ] = None ) -> None :
-        plot.complex_waveform_v0_0_0 ( self.samples_corrected , f"RxSamples corrected {title} {self.samples_corrected.size=}" , marker_squares = marker , marker_peaks = peaks )
+        plot.complex_waveform_v0_0_0 ( self.corrected , f"RxSamples corrected {title} {self.corrected.size=}" , marker_squares = marker , marker_peaks = peaks )
 
     def save_complex_samples_2_npf ( self , filename : str ) -> None :
         filename_with_timestamp = add_timestamp_2_filename ( filename )
-        file.save_complex_samples_2_npf ( filename_with_timestamp , self.samples )
+        file.save_complex_samples_2_npf ( filename_with_timestamp , self.raw )
 
     def save_complex_samples_2_csv ( self , filename : str ) -> None :
         filename_with_timestamp = add_timestamp_2_filename ( filename )
-        file.save_complex_samples_2_csv ( filename_with_timestamp , self.samples )
+        file.save_complex_samples_2_csv ( filename_with_timestamp , self.raw )
 
     def __repr__ ( self ) -> str :
         return (
-            f"{ self.samples.size= }, dtype = { self.samples.dtype= } { self.pluto_rx_ctx= }" if self.pluto_rx_ctx is not None else f"{ self.samples_filename= }"
+            f"{ self.raw.size= }, dtype = { self.raw.dtype= } { self.pluto_rx_ctx= }" if self.pluto_rx_ctx is not None else f"{ self.samples_filename= }"
         )
 
     def analyze ( self ) -> None :
-        sdr.analyze_rx_signal ( self.samples )
+        sdr.analyze_rx_signal ( self.raw )
 
     def clip_samples ( self , start : np.uint32 , end : np.uint32 ) -> None :
-        if start < 0 or end > ( self.samples.size - 1 ) :
+        if start < 0 or end > ( self.raw.size - 1 ) :
             raise ValueError ( "Start must be >= 0 & end <= samples length" )
         if start >= end :
             raise ValueError ( "Start must be < end" )
-        #self.samples_filtered = self.samples_filtered [ start : end + 1 ]
-        self.samples = self.samples [ start : end ]
+        #self.filtered = self.filtered [ start : end + 1 ]
+        self.raw = self.raw [ start : end ]
 
     def clip_samples_filtered ( self , start : np.uint32 , end : np.uint32 ) -> None :
-        if start < 0 or end > ( self.samples_filtered.size - 1 ) :
-            raise ValueError ( "Start must be >= 0 & end <= samples_filtered length" )
+        if start < 0 or end > ( self.filtered.size - 1 ) :
+            raise ValueError ( "Start must be >= 0 & end <= filtered length" )
         if start >= end :
             raise ValueError ( "Start must be < end" )
-        #self.samples_filtered = self.samples_filtered [ start : end + 1 ]
-        self.samples_filtered = self.samples_filtered [ start : end ]
+        #self.filtered = self.filtered [ start : end + 1 ]
+        self.filtered = self.filtered [ start : end ]
 
     def clip_samples_leftovers ( self ) -> None :
-        self.samples_leftovers = self.samples [ self.frames.samples_leftovers_start_idx : ]
+        self.leftovers = self.raw [ self.frames.samples_leftovers_start_idx : ]
 
 @dataclass ( slots = True , eq = False )
 class RxPluto_v0_0_0 :
@@ -547,7 +547,7 @@ class RxPluto_v0_0_0 :
 
     def __repr__ ( self ) -> str :
         return (
-            f"{ self.pluto_rx_ctx= }, { self.samples.samples.size= }" if self.sn is not None else f"No ADALM-Pluto connected."
+            f"{ self.pluto_rx_ctx= }, { self.samples.raw.size= }" if self.sn is not None else f"No ADALM-Pluto connected."
         )
 
 @dataclass ( slots = True , eq = False )

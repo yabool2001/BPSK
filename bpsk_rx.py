@@ -2,7 +2,7 @@
 Sekwencja uruchomienia skryptu:
 cd ~/python/temp/
 source .venv/bin/activate
-python tx.py
+python3 bpsk_v0.1.16-tx.py 4 10 -10.0
 
 ssh do fedora na Surface 9 Pro: ssh yabool2001@192.168.1.60
 Invalid rx_output_type: invalid. Must be raw or SI
@@ -53,7 +53,7 @@ previous_samples_leftovers : NDArray[ np.int16 ] = np.array ( [] , dtype = np.in
 real = True
 debug = False
 plt = True
-wrt = False
+wrt = True
 
 rx_pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_RX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
 sdr.print_pluto_settings ( rx_pluto.pluto_rx_ctx )
@@ -70,33 +70,15 @@ while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_by
     if debug :
         if rx_pluto_samples.has_amp_greater_than_ths : rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } { rx_pluto_samples.has_amp_greater_than_ths= }" )
     
-    rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } {rx_pluto_samples.samples.size=}" )
-    #print ( f"{ script_filename } {rx_pluto_samples.samples.dtype=}, {rx_pluto=}" )
-    #print ( f"{ script_filename } {rx_pluto_samples.samples[:10]=}" )
+    print ( f"{ script_filename } {rx_pluto_samples.raw.dtype=}, {rx_pluto=}" )
+    print ( f"{ script_filename } {rx_pluto_samples.raw[:10]=}" )
 
     #rx_pluto_samples.detect_frames ( deep = False )
-    break
-    if rx_pluto_samples.frames.has_leftovers :
-        previous_samples_leftovers = rx_pluto_samples.samples_leftovers
-
-    if rx_pluto_samples.frames.sync_sequence_peaks.size > 0 :
-        if plt : rx_pluto_samples.plot_complex_samples_filtered ( title = f"{ script_filename } {rx_pluto_samples.frames.sync_sequence_peaks.size=}" , peaks = rx_pluto_samples.frames.sync_sequence_peaks )
-        if wrt and real:
+    if rx_pluto_samples.has_amp_greater_than_ths :
+        rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } {rx_pluto_samples.raw.size=}" )
+        if wrt and real :
             rx_pluto_samples.save_complex_samples_2_npf ( wrt_filename_npy )
-
-    if rx_pluto_samples.frames.samples_payloads_bytes.size > 0 :
-        received_bytes = np.concatenate ( [ received_bytes , rx_pluto_samples.frames.samples_payloads_bytes ] )
-        print ( f"{ rx_pluto_samples.frames.samples_payloads_bytes[0]= }, { rx_pluto_samples.frames.samples_payloads_bytes.size= } { received_bytes.size= }" )
-        if debug : rx_pluto_samples.analyze ()
+        break
     
-    if packet.log_packet != "" :
-        # To jest najlepszy i najprostszy wybór dla aplikacji SDR działającej w pętli.
-        # Pozwala na płynny odbiór próbek bez dławienia się przy zapisie na dysk.
-        # Ryzyko, że "wątek zginie" przy zamykaniu programu jest minimalne w porównaniu do korzyści z płynności działania,
-        # a systemowy bufor pliku i tak zazwyczaj zdąży się opróżnić.
-        log_thread = threading.Thread ( target = file.save_log_thread , args = ( wrt_filename_log , packet.log_packet ) , daemon = True  )
-        log_thread.start ()
-        packet.log_packet = ""
-
     if not real :
         break

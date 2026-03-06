@@ -236,7 +236,7 @@ def print_pluto_settings ( pluto_ctx : iio.Context ) :
     
     return sdr
 '''
-def init_pluto_v0_0_0_old ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL , rx_gain_chan0_int : int = RX_GAIN ) -> adi.Pluto :
+def init_pluto_v0_0_0_old ( sn : str , tx_gain_float : float = TX_GAIN , gain_control_mode_chan0 : str = GAIN_CONTROL_MODE_CH0 , rx_gain_chan0_int : int = RX_GAIN_CH0 ) -> adi.Pluto :
     
     uri = get_uri ( sn )
     if uri is None:
