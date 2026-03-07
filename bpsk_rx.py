@@ -9,6 +9,11 @@ Invalid rx_output_type: invalid. Must be raw or SI
 
 RX_GAIN = 71                        # receive gain
 GAIN_CONTROL = "slow_attack"        # gain control mode
+
+Chcę wykorzystać zainstalowany pytorch, żeby potraktować cały łańcuch odbiorczy jako "czarną skrzynkę".
+Wrzucić do głębokiej sieci neuronowej przesuwną ramkę surowych, zaszumionych próbek I/Q (np. 131072 próbek prosto z libiio),
+a na wyjściu żądać prawdopodobieństwa, że ukryty tam bit to 0 lub 1.
+
 '''
 
 import numpy as np
