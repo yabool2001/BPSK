@@ -6,6 +6,9 @@ python3 bpsk_v0.1.16-tx.py 4 10 -10.0
 
 ssh do fedora na Surface 9 Pro: ssh yabool2001@192.168.1.60
 Invalid rx_output_type: invalid. Must be raw or SI
+
+RX_GAIN = 71                        # receive gain
+GAIN_CONTROL = "slow_attack"        # gain control mode
 '''
 
 import numpy as np
@@ -50,13 +53,17 @@ with open ( wrt_filename_log , "w" ) as wrt_file :
 received_bytes : NDArray[ np.uint8 ] = np.array ( [] , dtype = np.uint8 )
 previous_samples_leftovers : NDArray[ np.int16 ] = np.array ( [] , dtype = np.int16 )
 
+samples : list [ packet.RxSamples_v0_0_0 ] = []
+
 real = True
 debug = False
 plt = True
-wrt = True
+wrt = False
+
+counter = 0
 
 rx_pluto = packet.RxPluto_v0_0_0 ( sn = sdr.PLUTO_RX_SN , gain_control_mode_chan0 = gain_control_mode_chan0 , rx_gain_chan0_int = rx_gain_chan0_int ) if real else packet.RxPluto_v0_0_0 ()
-sdr.print_pluto_settings ( rx_pluto.pluto_rx_ctx )
+#sdr.print_pluto_settings ( rx_pluto.pluto_rx_ctx )
 
 
 while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_bytes.size == 0 ) :
@@ -67,18 +74,20 @@ while ( len ( received_bytes ) < 100000 and real ) or ( not real and received_by
     else :
         rx_pluto_samples = packet.RxSamples_v0_0_0 ()
         rx_pluto_samples.rx ( samples_filename = samples_filename )    
-    if debug :
-        if rx_pluto_samples.has_amp_greater_than_ths : rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } { rx_pluto_samples.has_amp_greater_than_ths= }" )
     
-    print ( f"{ script_filename } {rx_pluto_samples.raw.dtype=}, {rx_pluto=}" )
-    print ( f"{ script_filename } {rx_pluto_samples.raw[:10]=}" )
+    if real :
+        previous_samples_leftovers = rx_pluto_samples.leftovers
+        if counter > 1 :
+            break
+    
 
     #rx_pluto_samples.detect_frames ( deep = False )
     if rx_pluto_samples.has_amp_greater_than_ths :
-        rx_pluto_samples.plot_complex_samples ( title = f"{ script_filename } {rx_pluto_samples.raw.size=}" )
-        if wrt and real :
-            rx_pluto_samples.save_complex_samples_2_npf ( wrt_filename_npy )
-        break
-    
-    if not real :
-        break
+        samples.append ( rx_pluto_samples )
+        counter += 1
+
+counter = 0
+while len ( samples ) > counter :
+    if plt : samples[counter].plot_complex_samples ( title = f"{ script_filename } {samples[counter].raw.size=}" )
+    if wrt and real : samples[counter].save_complex_samples_2_npf ( wrt_filename_npy )
+    counter += 1

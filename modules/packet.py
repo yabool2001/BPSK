@@ -427,7 +427,7 @@ class RxFrames_v0_0_0 :
 
 @dataclass ( slots = True , eq = False )
 class RxSamples_v0_0_0 :
-    
+
     pluto_rx_buf : iio.Buffer | None = None
 
     # Pola uzupełnianie w __post_init__
@@ -465,9 +465,6 @@ class RxSamples_v0_0_0 :
         else :
             raise ValueError ( "Either pluto_rx_ctx or samples_filename must be provided." )
 
-    def filter_samples ( self ) -> None :
-        self.filtered = filters.apply_rrc_rx_filter_v0_0_0 ( self.raw )
-
     def detect_frames ( self , deep : bool = False ) -> None :
         self.filter_samples ()
         self.frames = RxFrames_v0_0_0 ( samples_filtered = self.filtered , deep = deep )
@@ -495,9 +492,7 @@ class RxSamples_v0_0_0 :
         file.save_complex_samples_2_csv ( filename_with_timestamp , self.raw )
 
     def __repr__ ( self ) -> str :
-        return (
-            f"{ self.raw.size= }, dtype = { self.raw.dtype= } { self.pluto_rx_ctx= }" if self.pluto_rx_ctx is not None else f"{ self.samples_filename= }"
-        )
+        return f"{ self.raw.size= }, dtype = { self.raw.dtype= }"
 
     def analyze ( self ) -> None :
         sdr.analyze_rx_signal ( self.raw )
@@ -541,7 +536,7 @@ class RxPluto_v0_0_0 :
             self.pluto_rx_ctx , self.pluto_rx_buf = sdr.init_pluto_v0_0_0 ( sn = self.sn ,
                                                                            gain_control_mode_chan0 = self.gain_control_mode_chan0 ,
                                                                            rx_gain_chan0_int = self.rx_gain_chan0_int )
-            self.samples = RxSamples_v0_0_0 ( pluto_rx_buf = self.pluto_rx_buf )
+            self.samples = RxSamples_v0_0_0 ()
         else :
             self.samples = RxSamples_v0_0_0 ()
 
